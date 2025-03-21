@@ -145,7 +145,7 @@ func composeRoll(i string) string{
 	}
 }
 
-// call if user fucked up command use
+// call if user fucked up command use - shift the guilt, don't tell a single soul that you're the one to blame
 func iKnowWhatYouAre(s *discordgo.Session, m *discordgo.MessageCreate) {
 	s.ChannelMessageSendReply(m.ChannelID, "I know what you are.", m.Reference())
 }

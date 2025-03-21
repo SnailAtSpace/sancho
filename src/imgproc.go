@@ -41,34 +41,54 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 	}
 	orb := imagick.NewMagickWand()
 	defer orb.Destroy()
+
 	var resp *http.Response
 	var form string = "jpg"
-	if len(m.Attachments) == 0 || !strings.Contains(m.Attachments[0].ContentType, "image") {
-		if m.ReferencedMessage == nil {
-			s.ChannelMessageSendReply(m.ChannelID, "Please send an actual image.", m.Reference())
+	var targetMsg *discordgo.Message = m.Message
+
+	if (len(m.Attachments) == 0 || !strings.Contains(m.Attachments[0].ContentType, "image")) && !strings.Contains(m.Content, "https://"){
+		if m.ReferencedMessage == nil{
+			iKnowWhatYouAre(s,m)
 			return
 		}
-		if len(m.ReferencedMessage.Attachments) == 0 || !strings.Contains(m.ReferencedMessage.Attachments[0].ContentType, "image") {
-			if !strings.HasPrefix(m.ReferencedMessage.Content, "http"){
-				s.ChannelMessageSendReply(m.ChannelID, "Please send an actual image.", m.Reference())
-				return
-			} else {
-				// s.ChannelMessageSendReply(m.ChannelID, "Please select a non-Tenor gif.", m.Reference())
-				// return
-				resp, err = http.Get(m.ReferencedMessage.Content)
-			}
-		} else {
-			resp, err = http.Get(m.ReferencedMessage.Attachments[0].URL)
+		if len(m.ReferencedMessage.Attachments) == 0 || !strings.Contains(m.ReferencedMessage.Attachments[0].ContentType, "image")  && !strings.Contains(m.ReferencedMessage.Content, "https://"){
+			iKnowWhatYouAre(s,m)
+			return
 		}
-	} else {
-		resp, err = http.Get(m.Attachments[0].URL)
+		targetMsg = m.ReferencedMessage
 	}
 	
+	if len(targetMsg.Attachments) > 0 {
+		resp, err = http.Get(targetMsg.Attachments[0].URL)
+	} else {
+		if strings.Contains(targetMsg.Content, "cdn.discordapp.com") {
+			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://cdn.discordapp"):], " ")
+			resp, err = requestImageViaAPI(s, link)
+		} else if strings.Contains(targetMsg.Content, "tenor.com") {
+			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://tenor.com"):], " ")
+			resp, err = http.Get(link)
 
-	//now we pipe the first (for now) image into imagemagick and wait for the result - how?
+			if err != nil {
+				fmt.Println("couldn't get image from internet")
+				sadness(s,m,err)
+				return
+			}
+			orig, _ := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Println("couldn't extract from html")
+				sadness(s,m,err)
+				return
+			}
 
-	//fn := m.Attachments[0].Filename
-	//ext := fn[strings.LastIndex(fn, ".")+1:]
+			st := string(orig)
+			url := strings.ReplaceAll(st[strings.Index(st, "contentUrl")+len("contentUrl\":\""):strings.Index(st, "thumbnailUrl")-3], "\\u002F", "/")
+			resp, err = http.Get(url)
+		} else { // hope for the best
+			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://"):], " ")
+			resp, err = http.Get(link)
+		}
+	}
+
 	if err != nil {
 		fmt.Println("couldn't get image from internet")
 		sadness(s,m,err)
@@ -80,26 +100,6 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 		fmt.Println("couldn't extract from html")
 		sadness(s,m,err)
 		return
-	}
-
-	if m.ReferencedMessage != nil {
-		if strings.Contains(m.ReferencedMessage.Content, "tenor"){
-			st := string(orig)
-			url := strings.ReplaceAll(st[strings.Index(st, "contentUrl")+len("contentUrl\":\""):strings.Index(st, "thumbnailUrl")-3], "\\u002F", "/")
-			resp, err = http.Get(url)
-			if err != nil {
-				fmt.Println(url)
-				sadness(s,m,err)
-				return
-			}
-			orig, err = io.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				fmt.Println(url)
-				sadness(s,m,err)
-				return
-			}
-		}
 	}
 	
 	err = orb.ReadImageBlob(orig)
@@ -386,4 +386,29 @@ func speechBubble(s *discordgo.Session, m *discordgo.MessageCreate){
 			},
 		},
 	})
+}
+
+// for special use with discord links
+// solution to a month-old problem generously provided by yumi
+func requestImageViaAPI(s *discordgo.Session, url string) (*http.Response, error){
+	urlParts := strings.Split(url, "/")
+	if len(urlParts) < 7 {
+		return nil, fmt.Errorf("invalid attachment URL format")
+	}
+
+	channelID := urlParts[4]
+	attachmentID := urlParts[5]
+	
+	// Create a new HTTP client with your bot's authorization
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://discord.com/api/v10/channels/%s/messages/attachments/%s", channelID, attachmentID), nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Add the authorization header with your bot token
+	req.Header.Add("Authorization", "Bot "+s.Identify.Token)
+	
+	// Make the request
+	return client.Do(req)
 }
