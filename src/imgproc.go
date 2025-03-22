@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"runtime/debug"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -72,9 +71,8 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://tenor.com"):], " ")
 			resp, err = http.Get(link)
 
-			// the following code is mega ugly
-			if err != nil {
-				fmt.Println("couldn't get image from internet:", err)
+			if err != nil || resp.StatusCode != http.StatusOK{
+				fmt.Println("couldn't get image from tenor:", resp.StatusCode, err)
 				sadness(s,m,err)
 				return
 			}
@@ -86,7 +84,8 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 			}
 
 			st := string(orig)
-			url := strings.ReplaceAll(st[strings.Index(st, "contentUrl")+len("contentUrl\":\""):strings.Index(st, "thumbnailUrl")-3], "\\u002F", "/")
+			fieldStart := strings.Index(st, "contentUrl")+len("contentUrl\":\"")
+			url := strings.ReplaceAll(st[fieldStart:strings.Index(st[fieldStart:], "\"")], "\\u002F", "/")
 			resp, err = http.Get(url)
 		} else { // hope for the best
 			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://"):], " ")
@@ -95,7 +94,7 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 	}
 
 	if err != nil || resp.StatusCode != http.StatusOK{
-		fmt.Println("couldn't get image from internet:", resp.StatusCode, err, "\n", string(debug.Stack()))
+		fmt.Println("couldn't get image from internet:", resp.StatusCode, err)
 		return
 	}
 	orig, err := io.ReadAll(resp.Body)
