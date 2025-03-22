@@ -68,7 +68,7 @@ func main() {
 
 	browser = webrowser.NewWebrowse()
 
-	fmt.Printf("[%s] The onus has fallen onto me.\n", time.Now().Format(time.TimeOnly))
+	fmt.Printf("[%s] The onus has fallen onto me. Started on version %s\n", time.Now().Format(time.TimeOnly), discordgo.APIVersion)
 
 	img, err := os.Open("img/goodnight.png")
 	if err!=nil{
@@ -308,7 +308,18 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if slices.Contains(strings.Split(normMsg, " "), "kiss") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) {
 		//s.ChannelMessageSendReply(m.ChannelID, "...Maybe.", m.Reference())
 	} else if strings.Contains(normMsg, "mwah") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && (m.Author.ID == "371077314412412929"){
-		s.ChannelMessageSendReply(m.ChannelID, "...\n-# I'm sorry.", m.Reference())
+		whoopsMessages := []string{
+			"...Not now.\n-# We can hold hands though.",
+			"You know what?\n-# mwah",
+			"T-thy company is m-most ap-appreciated...",
+		}
+		pick := rand.IntN(3)
+		for i:=0; i<3; i++ {
+			if pick == 1 {
+				pick = rand.IntN(3)
+			}
+		}
+		s.ChannelMessageSendReply(m.ChannelID, whoopsMessages[pick], m.Reference())
 	} else if re.MatchString(normMsg) && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && m.Author.ID != "530516460712361986" {
 		//fut(s, m)
 	} else if strings.Contains(normMsg, "conceived") && m.Author.ID == "530516460712361986" {
