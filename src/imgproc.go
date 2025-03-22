@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image/png"
 	"io"
-	"fmt"
 	"math"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -51,8 +52,9 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 			iKnowWhatYouAre(s,m)
 			return
 		}
-		if len(m.ReferencedMessage.Attachments) == 0 || !strings.Contains(m.ReferencedMessage.Attachments[0].ContentType, "image")  && !strings.Contains(m.ReferencedMessage.Content, "https://"){
+		if (len(m.ReferencedMessage.Attachments) == 0 || !strings.Contains(m.ReferencedMessage.Attachments[0].ContentType, "image")) && !strings.Contains(m.ReferencedMessage.Content, "https://"){
 			iKnowWhatYouAre(s,m)
+			fmt.Println(m.ReferencedMessage.Content)
 			return
 		}
 		targetMsg = m.ReferencedMessage
@@ -61,19 +63,22 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 	if len(targetMsg.Attachments) > 0 {
 		resp, err = http.Get(targetMsg.Attachments[0].URL)
 	} else {
-		if strings.Contains(targetMsg.Content, "cdn.discordapp.com") {
-			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://cdn.discordapp"):], " ")
+		if strings.Contains(targetMsg.Content, "discordapp") {
+			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://"):], " ")
 			resp, err = requestImageViaAPI(s, link)
+			fmt.Println(link)
 		} else if strings.Contains(targetMsg.Content, "tenor.com") {
+			var orig []byte
 			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://tenor.com"):], " ")
 			resp, err = http.Get(link)
 
+			// the following code is mega ugly
 			if err != nil {
-				fmt.Println("couldn't get image from internet")
+				fmt.Println("couldn't get image from internet:", err)
 				sadness(s,m,err)
 				return
 			}
-			orig, _ := io.ReadAll(resp.Body)
+			orig, err = io.ReadAll(resp.Body)
 			if err != nil {
 				fmt.Println("couldn't extract from html")
 				sadness(s,m,err)
@@ -89,9 +94,8 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 		}
 	}
 
-	if err != nil {
-		fmt.Println("couldn't get image from internet")
-		sadness(s,m,err)
+	if err != nil || resp.StatusCode != http.StatusOK{
+		fmt.Println("couldn't get image from internet:", resp.StatusCode, err, "\n", string(debug.Stack()))
 		return
 	}
 	orig, err := io.ReadAll(resp.Body)
@@ -401,13 +405,14 @@ func requestImageViaAPI(s *discordgo.Session, url string) (*http.Response, error
 	
 	// Create a new HTTP client with your bot's authorization
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("https://discord.com/api/v10/channels/%s/messages/attachments/%s", channelID, attachmentID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://discord.com/api/v9/channels/%s/messages/attachments/%s", channelID, attachmentID), nil)
 	if err != nil {
 		return nil, err
 	}
 	
 	// Add the authorization header with your bot token
-	req.Header.Add("Authorization", "Bot "+s.Identify.Token)
+	fmt.Printf("https://discord.com/api/v9/channels/%s/messages/attachments/%s\n", channelID, attachmentID)
+	req.Header.Add("Authorization", s.Token)
 	
 	// Make the request
 	return client.Do(req)
