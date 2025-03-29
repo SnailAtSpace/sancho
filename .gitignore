@@ -26,8 +26,8 @@ go.work.sum
 # env file
 .env
 
-# tokens file
-tokens.txt
+# local files
+secrets.txt
 timers.txt
 
 get_jsfile_to_phantom

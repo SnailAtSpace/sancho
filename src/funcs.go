@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"math"
 	"math/big"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/k4s/phantomgo"
 )
 
 var err error
@@ -211,25 +209,6 @@ func fut(s *discordgo.Session, m *discordgo.MessageCreate) {
 		"...Did you learn that from that Knight? How humorous.",
 	}
 	s.ChannelMessageSendReply(m.ChannelID, messages[rand.Intn(len(messages))], m.Reference())
-}
-
-
-// IN DEVELOPMENT
-func getPrescript(s *discordgo.Session, m *discordgo.MessageCreate){
-	prescript, err := browser.Download(&phantomgo.Param{
-		Method: "GET",
-		Url: "https://nyos.dev/prescript",
-		Header:       http.Header{"Cookie": []string{"your cookies"}},
-		UsePhantomJS: true,
-	})
-	if err!=nil{
-		fmt.Println(err)
-		return
-	}
-	scanner := bufio.NewScanner(prescript.Body)
-	for scanner.Scan(){
-		fmt.Println(scanner.Text())
-	}
 }
 
 func sanchoball(s *discordgo.Session, m *discordgo.MessageCreate){

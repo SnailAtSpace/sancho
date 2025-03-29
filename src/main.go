@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"image/png"
 	"log"
 	"math/rand/v2"
 	"os"
@@ -15,69 +17,28 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/k4s/webrowser"
 	"gopkg.in/gographics/imagick.v3/imagick"
 )
 
 var reminders []Reminder
-var status bool
-var browser webrowser.Webrowser
+var cliCmds []CliCommand
+
+type CliCommand struct {
+	alias string
+	meth func(string) 
+}
+
+type BotCommand struct {
+	aliases []string
+	meth func(*discordgo.Session, *discordgo.MessageCreate) 
+}
+
 
 func main() {
-	status = true
-	fmt.Printf("[%s] I shall pronounce the bot started.\n", time.Now().Format(time.TimeOnly))
-
-	tokens, err := os.Open("tokens.txt")
+	discord, err := startup()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer tokens.Close()
-
-	scanner := bufio.NewScanner(tokens)
-	var auth_token string
-	if scanner.Scan() {
-		auth_token = scanner.Text()
-	} else {
-		log.Fatal(err)
-	}
-
-	discord, err := discordgo.New("Bot " + auth_token)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	discord.Identify.Intents = 335666240
-	discord.Identify.Intents |= discordgo.IntentGuildMembers
-	discord.Identify.Intents |= discordgo.IntentGuilds
-	discord.Identify.Intents |= discordgo.IntentGuildMessages
-	discord.Identify.Intents |= discordgo.IntentGuildMessageTyping
-	discord.Identify.Intents |= discordgo.IntentGuildMessageReactions
-	discord.Identify.Intents |= discordgo.IntentGuildPresences
-	discord.AddHandler(guildCreate)
-	discord.AddHandler(ready)
-	discord.AddHandler(messageCreate)
-	discord.AddHandler(messageUpdate)
-
-	err = discord.Open()
-	if err != nil {
-		fmt.Println("error opening connection,", err)
-		return
-	}
-	defer discord.Close()
-
-	browser = webrowser.NewWebrowse()
-
-	fmt.Printf("[%s] The onus has fallen onto me. Started on version %s\n", time.Now().Format(time.TimeOnly), discordgo.APIVersion)
-
-	img, err := os.Open("img/goodnight.png")
-	if err!=nil{
-		panic("SHIT")
-	}
-	defer img.Close()
-
-	imagick.Initialize()
-	defer imagick.Terminate()
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -91,7 +52,6 @@ func main() {
 	}()
 
 	echoChan := "1331332284372222074"
-	//echoGuild := "1250579779837493278"
 	retch := make(chan int)
 	ticker := time.NewTicker(100*time.Millisecond)
 
@@ -103,69 +63,99 @@ func main() {
 		case text := <-ch:
 			// process the input asynchronously
 			go func() {
-				if text == "gn" {
-					discord.ChannelMessageSendComplex("1331332284372222074", &discordgo.MessageSend{
-						Content: "Good night, Family. Tomorrow we shall take part in the banquet... again. For now, however, I will rest.",
-						Files: []*discordgo.File{
-							{
-								Name:   "goodnight.png",
-								Reader: img,
-							},
-						},
-					})
-					retch <- 1 // idk how go works, holy shit!
-				} else if strings.HasPrefix(text, "chan ") {
-					echoChan, _ = strings.CutPrefix(text,"chan ")
-				} else if strings.HasPrefix(text, "guild ") {
-					//echoGuild, _ = strings.CutPrefix(text,"guild ")
-				} else if strings.HasPrefix(text, "say ") {
-					raw, _ := strings.CutPrefix(text, "say ")
-					discord.ChannelMessageSend(echoChan, raw)
-				} else if strings.HasPrefix(text, "sayr ") {
-					raw,_ := strings.CutPrefix(text,"sayr ")
-					repId, msg, found := strings.Cut(raw, " ")
-					if !found {
-						log.Println("bro you're doing something wrong")
-					}
-					discord.ChannelMessageSendReply(echoChan, msg, &discordgo.MessageReference{MessageID: repId})
-				} else if strings.HasPrefix(text, "sayi ") {
-					raw,_ := strings.CutPrefix(text,"sayi ")
-					name, msg, found := strings.Cut(raw, " ")
-					if !found {
-						msg = ""
-					}
-					var msgId string
-					if strings.Contains(msg, " ") {
-						msgId, msg, _ = strings.Cut(msg, " ")
-					}
-					img, err := os.Open("img/"+name)
-					if err!=nil{
-						log.Panic(name)
-					}
-					defer img.Close()
-					//var HELP bool = false
-					if msgId == ""{
-						discord.ChannelMessageSendComplex(echoChan, &discordgo.MessageSend{
-							Content: msg,
+				cmd := strings.Split(text, " ")[0]
+
+				cliCmds = append(cliCmds, CliCommand{"chan", func(s string) {echoChan, _ = strings.CutPrefix(text,"chan ")}})
+
+				switch (cmd){
+					case "gn" :
+						img, err := os.Open("img/goodnight.png")
+						if err!=nil{
+							log.Fatal(err)
+						}
+						defer img.Close()
+						discord.ChannelMessageSendComplex("1331332284372222074", &discordgo.MessageSend{
+							Content: "Good night, Family. Tomorrow we shall take part in the banquet... again. For now, however, I will rest.",
 							Files: []*discordgo.File{
 								{
-									Name:   name,
+									Name:   "goodnight.png",
 									Reader: img,
 								},
 							},
 						})
-					} else {
-						discord.ChannelMessageSendComplex(echoChan, &discordgo.MessageSend{
-							Content: msg,
-							Reference: &discordgo.MessageReference{MessageID: msgId},
-							Files: []*discordgo.File{
-								{
-									Name:   name,
-									Reader: img,
+						retch <- 1 // idk how go works, holy shit!
+					case "chan":
+						echoChan, _ = strings.CutPrefix(text,"chan ")
+					case "say":
+						raw, _ := strings.CutPrefix(text, "say ")
+						discord.ChannelMessageSend(echoChan, raw)
+					case "sayr":
+						raw,_ := strings.CutPrefix(text,"sayr ")
+						repId, msg, found := strings.Cut(raw, " ")
+						if !found {
+							log.Println("bro you're doing something wrong")
+						}
+						discord.ChannelMessageSendReply(echoChan, msg, &discordgo.MessageReference{MessageID: repId})
+					case "sayi":
+						raw,_ := strings.CutPrefix(text,"sayi ")
+						name, msg, found := strings.Cut(raw, " ")
+						if !found {
+							msg = ""
+						}
+						var msgId string
+						if strings.Contains(msg, " ") {
+							msgId, msg, _ = strings.Cut(msg, " ")
+						}
+						img, err := os.Open("img/"+name)
+						if err!=nil{
+							log.Panic(name)
+						}
+						defer img.Close()
+						if msgId == ""{
+							discord.ChannelMessageSendComplex(echoChan, &discordgo.MessageSend{
+								Content: msg,
+								Files: []*discordgo.File{
+									{
+										Name:   name,
+										Reader: img,
+									},
 								},
-							},
-						})
-					}
+							})
+						} else {
+							discord.ChannelMessageSendComplex(echoChan, &discordgo.MessageSend{
+								Content: msg,
+								Reference: &discordgo.MessageReference{MessageID: msgId},
+								Files: []*discordgo.File{
+									{
+										Name:   name,
+										Reader: img,
+									},
+								},
+							})
+						}
+					case "pfp":
+						id,_ := strings.CutPrefix(text,"pfp ")
+						user, err := discord.User(id)
+						if err != nil{
+							fmt.Println("user not found", err)
+							break
+						}
+						pfp, err := discord.UserAvatarDecode(user)
+						if err != nil{
+							fmt.Println("could not pull pfp", err)
+							break
+						}
+						var buf bytes.Buffer
+						err = png.Encode(&buf, pfp)
+						if err != nil{
+							fmt.Println("error encoding: weird", err)
+							break
+						}
+						err = os.WriteFile(fmt.Sprintf("img/%s.png", id), buf.Bytes(), os.FileMode(os.O_RDWR))
+						if err != nil{
+							fmt.Println("error when saving the file", err)
+							break
+						}
 				}
 				retch <- 0
 			}()
@@ -294,8 +284,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			listReminders(s,m, &reminders)
 		case "forget", "deremind":
 			deleteReminder(s,m, &reminders)
-		case "prescript", "yan":
-			getPrescript(s,m)
 		case "lmd":
 			go lamentMournAndDespair(s,m)
 		case "said", "speechbubble":
@@ -426,4 +414,57 @@ func panicMsg(s *discordgo.Session){
 		s.ChannelMessageSend("1331332284372222074","<@479126092330827777> FATAL CRASH: "+a.(error).Error())
 		panic(a.(error))
 	}
+}
+
+func startup() (*discordgo.Session, error){
+	fmt.Printf("[%s] I shall pronounce the bot started.\n", time.Now().Format(time.TimeOnly))
+
+	tokens, err := os.Open("secrets.txt")
+	if err != nil {
+		return nil, fmt.Errorf("no secrets file: %s", err.Error())
+	}
+	defer tokens.Close()
+
+	scanner := bufio.NewScanner(tokens)
+	var auth_token string
+	if scanner.Scan() {
+		auth_token = scanner.Text()
+	} else {
+		return nil, fmt.Errorf("empty secrets file")
+	}
+
+	// firing up the discord session
+	discord, err := discordgo.New("Bot " + auth_token)
+
+	if err != nil {
+		return nil, fmt.Errorf("couldn't initialize discord session: %s", err.Error())
+	}
+
+	// setting intents and adding event handlers
+	discord.Identify.Intents = 335666240
+	discord.Identify.Intents |= discordgo.IntentGuildMembers
+	discord.Identify.Intents |= discordgo.IntentGuilds
+	discord.Identify.Intents |= discordgo.IntentGuildMessages
+	discord.Identify.Intents |= discordgo.IntentGuildMessageTyping
+	discord.Identify.Intents |= discordgo.IntentGuildMessageReactions
+	discord.Identify.Intents |= discordgo.IntentGuildPresences
+	discord.AddHandler(guildCreate)
+	discord.AddHandler(ready)
+	discord.AddHandler(messageCreate)
+	discord.AddHandler(messageUpdate)
+
+	// knocking on discord's window
+	err = discord.Open()
+	if err != nil {
+		return nil, fmt.Errorf("error opening connection: %s", err.Error())
+	}
+	defer discord.Close()
+
+	// finally, enabling imagick for image processing
+	imagick.Initialize()
+	defer imagick.Terminate()
+
+	// and we're done!
+	fmt.Printf("[%s] The onus has fallen onto me. Started on API version %s\n", time.Now().Format(time.TimeOnly), discordgo.APIVersion)
+	return discord, nil
 }
