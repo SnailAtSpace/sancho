@@ -61,63 +61,65 @@ func editRoll(s *discordgo.Session, m *discordgo.MessageUpdate, mymsg *discordgo
 }
 
 func composeRoll(i string) string{
-	var count, mod int
+	var mod int
 	r, _ := strings.CutPrefix(i, ".roll ")
 	if idk, err := strconv.Atoi(r); err == nil && idk > 0 {
-		count = 1
-		mod = 0
 		num, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(idk)))
 		return strconv.Itoa(int(num.Int64()+1))
 	} else {
-		countS, rest, found := strings.Cut(r, "d")
-		if !found {
+		rest := r
+		if !strings.Contains(rest, "d") {
 			return ""
 		}
 
-		if countS == "" {
-			count = 1
-		} else {
-			count, err = strconv.Atoi(countS)
-			if err != nil {
-				return ""
-			}
-		}
-
-		modRune := strings.IndexAny(rest, "+-*^_")
-		if modRune == -1 {
-			modRune = len(rest)
-		}
-
-		max, err := strconv.Atoi(rest[:modRune])
-		if err != nil {
-			return ""
-		}
-
-		if max < 1 || count < 1 {
-			fmt.Println(max, count)
-			return ""
-		}
-
+		rest = "+"+rest // magic 2
+		operators := "+-*^_"
 		rawStr := ""
 		sum := 0
-		for i := 0; i < count; i++ {
-			vbig, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64((max))))
-			v := int(vbig.Int64()) + 1
-			rawStr += strconv.Itoa(v) + " "
-			sum += v
-		}
 
-		for modRune < len(rest) {
+		for len(rest)>0 {
 			// the following code is magic! don't touch
-			rest = rest[modRune:]
-			sign := rest[0]
-			modRune = strings.IndexAny(rest[1:], "+-*^_") + 1
+			
+			modRune := strings.IndexAny(rest[1:], operators)+1 // next rune = end of our bit
+
 			if modRune == 0 {
 				modRune = len(rest)
 			}
-			mod, err = strconv.Atoi(rest[1:modRune])
-			if err != nil {
-				return ""
+
+			bit := rest[1:modRune] // this killed sancho
+			sign := rest[0]
+			fmt.Println(bit)
+			if strings.Contains(bit, "d") {
+				mod = 0
+				countS, maxS, found := strings.Cut(bit,"d")
+				if !found{
+					return ""
+				}
+				var count int
+				if len(countS)>0{
+					count, err = strconv.Atoi(countS)
+					if err!=nil{
+						return ""
+					}
+				} else {
+					count = 1
+				}
+				max, err := strconv.Atoi(maxS)
+				if err!=nil{
+					return ""
+				}
+				for i := 0; i < count; i++ {
+					vbig, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64((max))))
+					v := int(vbig.Int64()) + 1
+					rawStr += strconv.Itoa(v) + " "
+					mod += v
+				}
+				fmt.Printf("count: %d, max: %d, total: %d\n", count, max, mod)
+			} else {
+				mod, err = strconv.Atoi(bit)
+				if err!=nil{
+					return ""
+				}
 			}
 
 			switch sign {
@@ -132,7 +134,7 @@ func composeRoll(i string) string{
 			case '_':
 				sum = int(math.Pow(float64(mod), float64(sum)))
 			}
-
+			rest = rest[modRune:]
 		}
 
 		out := strconv.Itoa(sum) + " (" + rawStr[:len(rawStr)-1] + ")"

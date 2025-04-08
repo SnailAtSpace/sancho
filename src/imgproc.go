@@ -41,6 +41,7 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 	}
 	orb := imagick.NewMagickWand()
 	defer orb.Destroy()
+	orb.SetOption("MAGICK_OCL_DEVICE", "GPU")
 
 	var resp *http.Response
 	var form string = "jpg"
@@ -85,7 +86,7 @@ func jpegify(s *discordgo.Session, m *discordgo.MessageCreate, quality int) {
 
 			st := string(orig)
 			fieldStart := strings.Index(st, "contentUrl")+len("contentUrl\":\"")
-			url := strings.ReplaceAll(st[fieldStart:strings.Index(st[fieldStart:], "\"")], "\\u002F", "/")
+			url := strings.ReplaceAll(st[fieldStart:fieldStart+strings.Index(st[fieldStart:], "\"")], "\\u002F", "/")
 			resp, err = http.Get(url)
 		} else { // hope for the best
 			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://"):], " ")
