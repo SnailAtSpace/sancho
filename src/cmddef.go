@@ -1,27 +1,42 @@
 package main
 
-import "github.com/bwmarrin/discordgo"
+import (
+	. "github.com/snailatspace/sancho/src/funcs"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 type CliCommand struct {
-	alias string
-	meth  func(*discordgo.Session, string) error
+	Alias string
+	Func  func(*discordgo.Session, string) error
 }
 
 type BotCommand struct {
-	aliases []string
-	meth    func() error
+	Aliases []string
+	Func    func(*Instance, *discordgo.MessageCreate)
 }
 
 var cliCmds = []CliCommand{
-	CliCommand{"gn", gn},
-	CliCommand{"chan", changeChannel},
-	CliCommand{"say", sayCli},
-	CliCommand{"sayr", sayCliReply},
-	CliCommand{"sayi", sayCliAttachment},
-	CliCommand{"listen", listenChannel},
-	CliCommand{"channels", listChannels},
+	{"gn", gn},
+	{"chan", changeChannel},
+	{"say", sayCli},
+	{"sayr", sayCliReply},
+	{"sayi", sayCliAttachment},
+	{"listen", listenChannel},
+	{"channels", listChannels},
 }
 
-// var botCmds = []BotCommand{
-// 	BotCommand{[]string{"roll"}, roll},
-// }
+var botCmds = []BotCommand{
+	{[]string{"help"}, Help},
+	{[]string{"roll"}, Roll},
+	{[]string{"bod"}, BoD},
+	{[]string{"nacho", "badword", "rye", "ryeldhunt", "pet"}, SendImg},
+	{[]string{"remind", "remindme"}, SetReminder},
+	{[]string{"reminders"}, ListReminders},
+	{[]string{"deremind", "forget"}, DeleteReminder},
+	{[]string{"lmd"}, LamentMournAndDespair},
+	{[]string{"said", "speechbubble"}, SpeechBubble},
+	{[]string{"sanchoball", "8ball"}, Sanchoball},
+	{[]string{"settz"}, SetTimezone},
+	{[]string{"yesod", "jpeg"}, Jpegify},
+}

@@ -1,4 +1,4 @@
-package main
+package funcs
 
 // import (
 // 	"strings"
