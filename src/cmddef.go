@@ -39,4 +39,5 @@ var botCmds = []BotCommand{
 	{[]string{"sanchoball", "8ball"}, Sanchoball},
 	{[]string{"settz"}, SetTimezone},
 	{[]string{"yesod", "jpeg", "corru"}, ApplyImageProcessing},
+	{[]string{"limbusroll", "skill", "skillroll"}, LimbusRoll},
 }
