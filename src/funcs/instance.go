@@ -4,6 +4,6 @@ import "github.com/bwmarrin/discordgo"
 
 type Instance struct {
 	Session   *discordgo.Session
-	Reminder  *ReminderManager
+	RManager  *ReminderManager
 	ErrorChan chan error
 }

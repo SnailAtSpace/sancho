@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand/v2"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -25,7 +24,7 @@ func ready(s *discordgo.Session, m *discordgo.Ready) {
 	}
 	s.UpdateCustomStatus("Allow me to regale thee... that, in this... adventure of mine... Verily, I was blessed with a family of " + strconv.Itoa(num-1) + ".")
 
-	err = inst.Reminder.ReviseRemindersAfterStartup(inst)
+	err = inst.RManager.ReviseRemindersAfterStartup(inst)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -66,7 +65,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.ReferencedMessage != nil {
 		refid = m.ReferencedMessage.Author.ID
 	}
-	re := regexp.MustCompile("fuck|shit|ass|idiot|dumb|stupid|clanker|bitch")
 	normMsg := strings.TrimSpace(strings.ToLower(m.ContentWithMentionsReplaced()))
 	if len(normMsg) == 0 {
 		return
@@ -84,14 +82,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if normMsg[0] == '.' {
 		cmd := strings.Split(normMsg[1:], " ")[0]
 		for _, c := range botCmds {
-
 			if slices.Contains(c.Aliases, cmd) {
 				go c.Func(inst, m)
 			}
 		}
 	} else if slices.Contains(strings.Split(normMsg, " "), "kiss") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) {
 		//s.ChannelMessageSendReply(m.ChannelID, "...Maybe.", m.Reference())
-	} else if strings.Contains(normMsg, "mwah") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && (m.Author.ID == "371077314412412929") {
+	} else if strings.Contains(normMsg, "mwah") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && (m.Author.ID == whoopsID) {
 		whoopsMessages := []string{
 			"...Not now.\n-# We can hold hands though.",
 			"You know what?\n-# mwah",
@@ -104,9 +101,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 		s.ChannelMessageSendReply(m.ChannelID, whoopsMessages[pick], m.Reference())
-	} else if re.MatchString(normMsg) && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && m.Author.ID != "530516460712361986" {
-		//fut(s, m)
-	} else if strings.Contains(normMsg, "conceived") && m.Author.ID == "530516460712361986" {
+	} else if strings.Contains(normMsg, "conceived") && m.Author.ID == mattagerID {
 		inst.Session.ChannelMessageSendReply(m.ChannelID, "What... is it this time?", m.Reference())
 	}
 }

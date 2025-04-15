@@ -1,6 +1,7 @@
 package main
 
 import (
+
 	. "github.com/snailatspace/sancho/src/funcs"
 
 	"bufio"
@@ -18,28 +19,31 @@ import (
 
 var listenChannelID string
 
-var echoChan string = "1331332284372222074"
+var echoChan string = ""
 var retch = make(chan int) // i hate this. i hate this with all my heart. but i cannot bring myself to do any better.
 
 var inst *Instance
+var status bool = false
+
+var greedID, myID, femmoID, whoopsID, mattagerID, nachoBowl string
 
 func main() {
 	listenChannelID = ""
 	fmt.Printf("[%s] I shall pronounce the bot started.\n", time.Now().Format(time.TimeOnly))
 
-	tokens, err := os.Open("secrets.txt")
+	rawSecrets, err := os.ReadFile("secrets.txt")
 	if err != nil {
 		log.Fatalf("no secrets file: %s", err.Error())
 	}
-	defer tokens.Close()
-
-	scanner := bufio.NewScanner(tokens)
-	var auth_token string
-	if scanner.Scan() {
-		auth_token = scanner.Text()
-	} else {
-		log.Fatalf("empty secrets file")
-	}
+	secrets := strings.Split(string(rawSecrets), "\n")
+	
+	auth_token := secrets[0]
+	nachoBowl = secrets[1]
+	mattagerID = secrets[2]
+	whoopsID = secrets[3]
+	myID = secrets[4]
+	femmoID = secrets[5]
+	greedID = secrets[6]
 
 	// firing up the discord session
 	discord, err := discordgo.New("Bot " + auth_token)
@@ -47,6 +51,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("couldn't initialize discord session: %s", err.Error())
 	}
+
+	inst = &Instance{Session: discord, RManager: &ReminderManager{Reminders: make([]Reminder, 0)}, ErrorChan: make(chan error)}
 
 	// setting intents and adding event handlers
 	discord.Identify.Intents = 335666240
@@ -60,6 +66,7 @@ func main() {
 	discord.AddHandler(ready)
 	discord.AddHandler(messageCreate)
 	discord.AddHandler(messageUpdate)
+	discord.AddHandler(presenceUpdate)
 
 	// knocking on discord's window
 	err = discord.Open()
@@ -71,8 +78,6 @@ func main() {
 	// finally, enabling imagick for image processing
 	imagick.Initialize()
 	defer imagick.Terminate()
-
-	inst = &Instance{Session: discord, Reminder: &ReminderManager{Reminders: make([]Reminder, 0)}, ErrorChan: make(chan error)}
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -86,11 +91,17 @@ func main() {
 	}()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
+	femmoTicker := time.NewTicker(24 * time.Hour)
+	femmoTimes := 0
 
 	defer panicMsg(discord)
 
 	for {
 		<-ticker.C
+		if status {
+			femmoTicker.Reset(24 * time.Hour)
+			femmoTimes = 0
+		}
 		select {
 		case text := <-ch:
 			// process the input asynchronously
@@ -111,17 +122,29 @@ func main() {
 			}
 		case <-sc:
 			return
+		case err = <-inst.ErrorChan:
+			if err != nil {
+				log.Println(err.Error())
+			}
+		case <-femmoTicker.C:
+			femmoTimes++
+			greed, err := inst.Session.UserChannelCreate(greedID)
+			if err != nil {
+				log.Println(err.Error())
+				break
+			}
+			inst.Session.ChannelMessageSend(greed.ID, fmt.Sprintf("Breadfemmo has been offline for %d consecutive hours.", 24*femmoTimes))
 		default:
 		}
 		iterateReminders(inst)
 	}
 }
 
-func iterateReminders (inst *Instance) {
-	for i := 0; i < len(inst.Reminder.Reminders); i++ {
+func iterateReminders(inst *Instance) {
+	for i := 0; i < len(inst.RManager.Reminders); i++ {
 		select {
-		case <-inst.Reminder.Reminders[i].GetTimer().C:
-			defer Remind(inst, &(inst.Reminder.Reminders[i]))
+		case <-inst.RManager.Reminders[i].GetTimer().C:
+			defer Remind(inst, &(inst.RManager.Reminders[i]))
 		default:
 		}
 	}
@@ -130,7 +153,20 @@ func iterateReminders (inst *Instance) {
 func panicMsg(s *discordgo.Session) {
 	a := recover()
 	if a != nil {
-		s.ChannelMessageSend("1331332284372222074", "<@479126092330827777> FATAL CRASH: "+a.(error).Error())
+		s.ChannelMessageSend(nachoBowl, fmt.Sprintf("<@%s> FATAL CRASH: "+a.(error).Error(), myID))
 		panic(a.(error))
+	}
+}
+
+func presenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
+	if m.User.ID == femmoID {
+		if m.Status == discordgo.StatusOffline && status {
+			status = false
+			fmt.Println(status)
+		}
+		if m.Status != discordgo.StatusOffline && !status {
+			status = true
+			fmt.Println(status)
+		}
 	}
 }

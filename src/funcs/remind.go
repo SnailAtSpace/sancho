@@ -35,9 +35,9 @@ type Reminder struct {
 }
 
 type Token struct {
-	key string
-	txt string
-	inst   int
+	key  string
+	txt  string
+	inst int
 }
 
 func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
@@ -274,7 +274,7 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 			}
 		case "forever":
 			foreverFlag = true
-			// this one'inst.Session a doozy
+			// this one's a doozy
 		default:
 			msg += t.key + " " + t.txt
 		}
@@ -321,14 +321,14 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 
 		tzloc, err := time.LoadLocation(tzstring)
 		if err != nil {
-			Sadness(inst,m)
+			Sadness(inst, m)
 			inst.ErrorChan <- err
 			return
 		}
 
 		timeParsed, err := time.ParseInLocation(time.DateTime, time.Unix(int64(timeInUnix), 0).Format(time.DateTime), tzloc)
 		if err != nil {
-			Sadness(inst,m)
+			Sadness(inst, m)
 			inst.ErrorChan <- err
 			return
 		}
@@ -343,7 +343,7 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 
 	msg, _ = strings.CutPrefix(strings.TrimSpace(msg), "to ")
 
-	inst.Reminder.AppendReminder(
+	inst.RManager.AppendReminder(
 		time.Unix(int64(timeInUnix), 0),
 		time.Now(),
 		msg,
@@ -351,12 +351,12 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 		targetUser,
 		m.Message,
 		m.Message.ID,
-		time.NewTimer(time.Duration(timeInUnix-int(time.Now().Unix())) * time.Second),
-		repeats - 1,
+		time.NewTimer(time.Duration(timeInUnix-int(time.Now().Unix()))*time.Second),
+		repeats-1,
 		repeatTime,
 		m.ChannelID,
 	)
-	inst.Session.ChannelMessageSendReply(m.ChannelID, "...As you wish. inst shall send a reminder at <t:"+strconv.Itoa(timeInUnix)+">.", m.Reference())
+	inst.Session.ChannelMessageSendReply(m.ChannelID, "...As you wish. I shall send a reminder at <t:"+strconv.Itoa(timeInUnix)+">.", m.Reference())
 }
 
 func Remind(inst *Instance, r *Reminder) {
@@ -448,7 +448,7 @@ func Remind(inst *Instance, r *Reminder) {
 				strconv.Itoa(r.period),
 				r.message}, " ")
 
-			inst.Reminder.Reminders = append(inst.Reminder.Reminders, Reminder{
+			inst.RManager.Reminders = append(inst.RManager.Reminders, Reminder{
 				end:     time.Unix(int64(int(r.end.Unix())+r.period), 0),
 				start:   time.Unix(int64(r.end.Unix()), 0),
 				message: r.message,
@@ -463,8 +463,8 @@ func Remind(inst *Instance, r *Reminder) {
 		}
 	}
 
-	i := slices.Index(inst.Reminder.Reminders, *r)
-	inst.Reminder.Reminders = slices.Delete(inst.Reminder.Reminders, i, i+1)
+	i := slices.Index(inst.RManager.Reminders, *r)
+	inst.RManager.Reminders = slices.Delete(inst.RManager.Reminders, i, i+1)
 	// help!!!!
 
 	err = os.WriteFile("timers.txt", []byte(newFileData), 0666)
@@ -477,7 +477,7 @@ func Remind(inst *Instance, r *Reminder) {
 func ListReminders(inst *Instance, m *discordgo.MessageCreate) {
 	fullResponse := ""
 	count := 0
-	for _, rem := range inst.Reminder.Reminders {
+	for _, rem := range inst.RManager.Reminders {
 		if rem.target == m.Author.ID {
 			count += 1
 			fullResponse += strconv.Itoa(count) + ": " + rem.message + " @ <t:" + strconv.Itoa(int(rem.end.Unix())) + ">\n"
@@ -537,13 +537,13 @@ func DeleteReminder(inst *Instance, m *discordgo.MessageCreate) {
 	}
 
 	counter = 0
-	for i, rem := range inst.Reminder.Reminders {
+	for i, rem := range inst.RManager.Reminders {
 		if rem.author == m.Author.ID {
 			counter++
 		}
 		if counter == ind {
 			inst.Session.ChannelMessageSendReply(m.ChannelID, "...Reminder to "+rem.message+" successfully deleted.", m.Reference())
-			inst.Reminder.Reminders = slices.Delete(inst.Reminder.Reminders, i, i+1)
+			inst.RManager.Reminders = slices.Delete(inst.RManager.Reminders, i, i+1)
 			return
 		}
 	}
@@ -581,14 +581,13 @@ func SetTimezone(inst *Instance, m *discordgo.MessageCreate) {
 	inst.Session.ChannelMessageSendReply(m.ChannelID, "Timezone set to "+tzloc.String(), m.SoftReference())
 }
 
-
 func (r *ReminderManager) AppendReminder(end time.Time, start time.Time, message string, author string, target string, request *discordgo.Message, rqid string, timer *time.Timer, repeats int, period int, channelID string) error {
 	timerFile, err := os.OpenFile("timers.txt", os.O_APPEND, 0666)
 	if err != nil {
 		return err
 	}
 	defer timerFile.Close()
-	
+
 	timerFile.WriteString(strings.Join([]string{rqid, strconv.Itoa(int(end.Unix())), strconv.Itoa(int(start.Unix())), target, channelID, author, strconv.Itoa(repeats), strconv.Itoa(period), message}, " ") + "\n")
 	r.Reminders = append(r.Reminders, Reminder{
 		end:     end,
@@ -605,7 +604,7 @@ func (r *ReminderManager) AppendReminder(end time.Time, start time.Time, message
 	return nil
 }
 
-func (r *Reminder) GetTimer() *time.Timer{
+func (r *Reminder) GetTimer() *time.Timer {
 	return r.timer
 }
 
@@ -624,7 +623,7 @@ func (r *Reminder) Clone() *Reminder {
 	}
 }
 
-func (r *ReminderManager) ReviseRemindersAfterStartup (inst *Instance) error {
+func (r *ReminderManager) ReviseRemindersAfterStartup(inst *Instance) error {
 	reminderFile, err := os.OpenFile("timers.txt", os.O_RDWR, 0666)
 	if err != nil {
 		return err

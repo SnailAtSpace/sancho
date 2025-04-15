@@ -17,7 +17,7 @@ func Roll(i *Instance, m *discordgo.MessageCreate) {
 	if err != nil || strings.Contains(m.Content, "bread") {
 		return
 	}
-	if roll, err := composeRoll(m.Content); roll == "" || err == nil{
+	if roll, err := composeRoll(m.Content); roll == "" || err != nil{
 		i.Session.ChannelMessageSendReply(c.ID, roll, m.SoftReference())
 		i.ErrorChan <- err
 	} else {
@@ -30,7 +30,7 @@ func EditRoll(i *Instance, m *discordgo.MessageUpdate, mymsg *discordgo.Message)
 	if err != nil || strings.Contains(m.Content, "bread") {
 		return
 	}
-	if roll, err := composeRoll(m.Content); roll == "" || err == nil{
+	if roll, err := composeRoll(m.Content); roll == "" || err != nil{
 		i.Session.ChannelMessageEdit(c.ID, mymsg.ID, "I know what you are.")
 		if err != nil {
 			log.Println(err.Error())
@@ -49,7 +49,7 @@ func composeRoll(i string) (string, error) {
 	} else {
 		rest := r
 		if !strings.Contains(rest, "d") {
-			return "", fmt.Errorf("no d found!")
+			return "", fmt.Errorf("no d found! dummy")
 		}
 
 		rest = "+" + rest // magic 2
@@ -76,15 +76,20 @@ func composeRoll(i string) (string, error) {
 				if len(countS) > 0 {
 					count, err = strconv.Atoi(countS)
 					if err != nil {
-						return "", fmt.Errorf("\"%s\" is not a valid number for dice count", count)
+						return "", fmt.Errorf("\"%s\" is not a valid number for dice count", countS)
 					}
 				} else {
 					count = 1
 				}
 				max, err := strconv.Atoi(maxS)
 				if err != nil {
-					return "", fmt.Errorf("\"%s\" is not a valid number for dice maximum", max)
+					return "", fmt.Errorf("\"%s\" is not a valid number for dice maximum", maxS)
 				}
+
+				if rawStr != "" {
+					rawStr += "| "
+				}
+
 				for i := 0; i < count; i++ {
 					vbig, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64((max))))
 					v := int(vbig.Int64()) + 1
@@ -95,7 +100,7 @@ func composeRoll(i string) (string, error) {
 			} else {
 				mod, err = strconv.Atoi(bit)
 				if err != nil {
-					return "", fmt.Errorf("\"%s\" is not a valid number for modifier", mod)
+					return "", fmt.Errorf("\"%s\" is not a valid number for modifier", bit)
 				}
 			}
 

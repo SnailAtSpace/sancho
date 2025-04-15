@@ -14,15 +14,16 @@ func SendImg(i *Instance, m *discordgo.MessageCreate) {
 		i.ErrorChan <- err
 	}
 
-	name := strings.Split(m.Content, " ")[0]
+	name := strings.Split(m.Content[1:], " ")[0]
 
-	files, err := filepath.Glob(name + ".*")
+	files, err := filepath.Glob("./img/"+ name + ".*")
 	if err != nil {
 		Sadness(i, m)
 		i.ErrorChan <- err
 	}
+	//fmt.Println("./img/"+ name + ".*")
 
-	img, err := os.Open("img/" + files[0])
+	img, err := os.Open("./" + files[0])
 	if err != nil {
 		Sadness(i, m)
 		i.ErrorChan <- err
@@ -31,7 +32,7 @@ func SendImg(i *Instance, m *discordgo.MessageCreate) {
 	i.Session.ChannelMessageSendComplex(c.ID, &discordgo.MessageSend{
 		Files: []*discordgo.File{
 			{
-				Name:   name,
+				Name:   strings.Split(files[0], "\\")[1],
 				Reader: img,
 			},
 		},
