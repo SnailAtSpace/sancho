@@ -8,11 +8,10 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"gopkg.in/ini.v1"
 )
 
-func EnderApologyReaction(inst *Instance, m *discordgo.MessageCreate){
-	var envname string = "SanchoEnderApologiesCounter"
-
+func EnderApologyReaction(inst *Instance, m *discordgo.MessageCreate) {
 	rawLines, err := os.ReadFile("apologylines.txt")
 	if err != nil {
 		inst.ErrorChan <- err
@@ -25,14 +24,16 @@ func EnderApologyReaction(inst *Instance, m *discordgo.MessageCreate){
 		inst.ErrorChan <- err
 	}
 
-	env := os.Getenv(envname)
-	if env == "" {
-		env = "0"
+	inifile, err := ini.Load("randombullshit.ini")
+	if err != nil {
+		inst.ErrorChan <- err
+		return
 	}
-	times, _ := strconv.Atoi(env)
+
+	times := inifile.Section("").Key("endercount").MustInt()
 	times++
 
-	os.Setenv(envname, strconv.Itoa(times))
+	inifile.Section("").Key("endercount").SetValue(strconv.Itoa(times))
 
-	inst.Session.ChannelMessageSendReply(m.ChannelID, lines[int(index.Int64())]+"\nTimes Ender has apologized: "+strconv.Itoa(times), m.SoftReference())
+	inst.Session.ChannelMessageSendReply(m.ChannelID, lines[int(index.Int64())]+"\n*Times Ender has apologized: "+strconv.Itoa(times)+"*", m.SoftReference())
 }
