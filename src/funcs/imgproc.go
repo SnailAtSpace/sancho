@@ -14,26 +14,29 @@ import (
 	"gopkg.in/gographics/imagick.v3/imagick"
 )
 
+type ImageProc struct {
+	Alias string
+	Func  func(*imagick.MagickWand) (*[]byte, error)
+}
 
-func Jpegify(inst *Instance, m *discordgo.MessageCreate) {
+var imageprocs = []ImageProc{
+	{"yesod", yesod},
+	{"jpeg", jpeg},
+	{"corru", corru},
+}
+
+func ApplyImageProcessing(inst *Instance, m *discordgo.MessageCreate) {
 	c, err := inst.Session.State.Channel(m.ChannelID)
 	if err != nil {
+		inst.ErrorChan <- err
 		return
 	}
 	orb := imagick.NewMagickWand()
 	defer orb.Destroy()
 	orb.SetOption("MAGICK_OCL_DEVICE", "GPU")
-
 	var resp *http.Response
 	var form string = "jpg"
 	var targetMsg *discordgo.Message = m.Message
-
-	var quality int
-	if strings.Split(m.Content[1:], " ")[0] == "yesod" {
-		quality = 2
-	} else {
-		quality = 10
-	}
 
 	if (len(m.Attachments) == 0 || !strings.Contains(m.Attachments[0].ContentType, "image")) && !strings.Contains(m.Content, "https://") {
 		if m.ReferencedMessage == nil {
@@ -101,9 +104,40 @@ func Jpegify(inst *Instance, m *discordgo.MessageCreate) {
 		Sadness(inst, m)
 		return
 	}
+
+	for _, r := range imageprocs {
+		if strings.Split(m.Content[1:], " ")[0] == r.Alias {
+			out, err := r.Func(orb)
+			if err != nil {
+				inst.ErrorChan <- err
+				fmt.Println(err)
+				return
+			}
+			outReader := bytes.NewReader(*out)
+			form = orb.GetFormat()
+			inst.Session.ChannelMessageSendComplex(c.ID, &discordgo.MessageSend{
+				Reference: m.Reference(),
+				Files: []*discordgo.File{
+					{
+						Name:   "img." + form,
+						Reader: outReader,
+					},
+				},
+			})
+			return
+		}
+	}
+	//what the fuck? how did we get here?
+	Sadness(inst, m)
+	inst.ErrorChan <- fmt.Errorf("we found an image processing command that is not in our list? what the fuck")
+	return
+}
+
+func Jpegify(orb *imagick.MagickWand, quality int) (*[]byte, error) {
 	var out []byte
 	if orb.GetNumberImages() > 1 {
 		orb = orb.CoalesceImages()
+		orb.SetFormat("gif")
 		var disp imagick.DisposeType
 		var w, h, del uint
 		var x, y int
@@ -112,7 +146,7 @@ func Jpegify(inst *Instance, m *discordgo.MessageCreate) {
 			del = orb.GetImageDelay()
 			w, h, x, y, _ = orb.GetImagePage()
 			disp = orb.GetImageDispose()
-			JpegifyImg(orb, quality)
+			jpegifyImg(orb, quality)
 			out, _ = orb.GetImageBlob()
 			orb.ReadImageBlob(out)
 			if i != int(orb.GetIteratorIndex()) {
@@ -125,30 +159,20 @@ func Jpegify(inst *Instance, m *discordgo.MessageCreate) {
 			orb.SetImagePage(w, h, x, y)
 		}
 		out, err = orb.GetImagesBlob()
-		form = "gif"
 	} else {
-		JpegifyImg(orb, quality)
+		orb.SetFormat("jpg")
+		jpegifyImg(orb, quality)
 		out, err = orb.GetImageBlob()
-		form = "jpg"
 	}
 	if err != nil {
 		fmt.Println("couldn't shove it back in")
-		Sadness(inst, m)
-		return
+		return nil, err
 	}
-	outReader := bytes.NewReader(out)
-	inst.Session.ChannelMessageSendComplex(c.ID, &discordgo.MessageSend{
-		Reference: m.Reference(),
-		Files: []*discordgo.File{
-			{
-				Name:   "img." + form,
-				Reader: outReader,
-			},
-		},
-	})
+
+	return &out, nil
 }
 
-func JpegifyImg(orb *imagick.MagickWand, q int) {
+func jpegifyImg(orb *imagick.MagickWand, q int) {
 	orb.SetImageFormat("JPEG")
 	orb.SetImageCompressionQuality(uint(q))
 	orb.SetCompressionQuality(uint(q))
@@ -405,4 +429,76 @@ func requestImageViaAPI(s *discordgo.Session, url string) (*http.Response, error
 
 	// Make the request
 	return client.Do(req)
+}
+
+func yesod(orb *imagick.MagickWand) (*[]byte, error) {
+	return Jpegify(orb, 1)
+}
+
+func jpeg(orb *imagick.MagickWand) (*[]byte, error) {
+	return Jpegify(orb, 4)
+}
+
+func corru(orb *imagick.MagickWand) (*[]byte, error) {
+	var out []byte
+
+	mapOrb := imagick.NewMagickWand()
+	defer mapOrb.Destroy()
+
+	obeskMap, err := os.Open("img/obesk.png")
+	if err != nil {
+		return nil, err
+	}
+	err = mapOrb.ReadImageFile(obeskMap)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(orb.GetNumberImages())
+	if orb.GetNumberImages() > 1 {
+		orb.SetFormat("gif")
+		orb = orb.CoalesceImages()
+		orb.SetFormat("gif")
+		var disp imagick.DisposeType
+		var w, h, del uint
+		var x, y int
+		for i := 0; i < int(orb.GetNumberImages()); i++ {
+			orb.SetIteratorIndex(i)
+			del = orb.GetImageDelay()
+			w, h, x, y, _ = orb.GetImagePage()
+			disp = orb.GetImageDispose()
+			corruifyImg(orb, mapOrb)
+			out, _ = orb.GetImageBlob()
+			orb.ReadImageBlob(out)
+			if i != int(orb.GetIteratorIndex()) {
+				orb.PreviousImage()
+			}
+			orb.RemoveImage()
+			orb.SetImageFormat("gif")
+			orb.SetImageDispose(disp)
+			orb.SetImageDelay(del)
+			orb.SetImagePage(w, h, x, y)
+		}
+		out, err = orb.GetImagesBlob()
+	} else {
+		orb.SetFormat("png")
+		corruifyImg(orb, mapOrb)
+		out, err = orb.GetImageBlob()
+	}
+	if err != nil {
+		fmt.Println("couldn't shove it back in")
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+func corruifyImg(orb *imagick.MagickWand, remapOrb *imagick.MagickWand) {
+	orb.SetImageFormat("png")
+	orb.SigmoidalContrastImage(true, 10, imagick.QUANTUM_RANGE/2+1024)
+	orb.PosterizeImage(12, imagick.DITHER_METHOD_NO)
+	x, y := orb.GetImageWidth(), orb.GetImageHeight()
+	scalingFactor := math.Min(float64(x/300), float64(y/300)) // analogous to downscaling it to fit in a 240x180 box
+	orb.ResizeImage(uint(float64(x)/scalingFactor), uint(float64(y)/scalingFactor), imagick.FILTER_POINT)
+	orb.RemapImage(remapOrb, imagick.DITHER_METHOD_FLOYD_STEINBERG)
 }

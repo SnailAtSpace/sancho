@@ -30,7 +30,7 @@ var botCmds = []BotCommand{
 	{[]string{"help"}, Help},
 	{[]string{"roll"}, Roll},
 	{[]string{"bod"}, BoD},
-	{[]string{"nacho", "badword", "rye", "ryeldhunt", "pet"}, SendImg},
+	{[]string{"nacho", "badword", "rye", "ryeldhunt", "pet", "sanitize"}, SendImg},
 	{[]string{"remind", "remindme"}, SetReminder},
 	{[]string{"reminders"}, ListReminders},
 	{[]string{"deremind", "forget"}, DeleteReminder},
@@ -38,5 +38,5 @@ var botCmds = []BotCommand{
 	{[]string{"said", "speechbubble"}, SpeechBubble},
 	{[]string{"sanchoball", "8ball"}, Sanchoball},
 	{[]string{"settz"}, SetTimezone},
-	{[]string{"yesod", "jpeg"}, Jpegify},
+	{[]string{"yesod", "jpeg", "corru"}, ApplyImageProcessing},
 }
