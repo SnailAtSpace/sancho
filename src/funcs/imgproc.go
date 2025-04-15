@@ -45,7 +45,6 @@ func ApplyImageProcessing(inst *Instance, m *discordgo.MessageCreate) {
 		}
 		if (len(m.ReferencedMessage.Attachments) == 0 || !strings.Contains(m.ReferencedMessage.Attachments[0].ContentType, "image")) && !strings.Contains(m.ReferencedMessage.Content, "https://") {
 			iKnowWhatYouAre(inst, m)
-			fmt.Println(m.ReferencedMessage.Content)
 			return
 		}
 		targetMsg = m.ReferencedMessage
@@ -130,7 +129,6 @@ func ApplyImageProcessing(inst *Instance, m *discordgo.MessageCreate) {
 	//what the fuck? how did we get here?
 	Sadness(inst, m)
 	inst.ErrorChan <- fmt.Errorf("we found an image processing command that is not in our list? what the fuck")
-	return
 }
 
 func Jpegify(orb *imagick.MagickWand, quality int) (*[]byte, error) {

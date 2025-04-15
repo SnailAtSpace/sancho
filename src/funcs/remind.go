@@ -175,7 +175,7 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 					rawt = strings.Split(strings.TrimSpace(t.txt), "-")
 					if rawt[0] == t.txt {
 						iKnowWhatYouAre(inst, m)
-						inst.ErrorChan <- fmt.Errorf("skill issue: bad date separator \"%inst.Session\"", t.txt)
+						inst.ErrorChan <- fmt.Errorf("skill issue: bad date separator \"%s\"", t.txt)
 						return
 					}
 				}
@@ -185,7 +185,7 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 				val, err := strconv.Atoi(r)
 				if err != nil {
 					iKnowWhatYouAre(inst, m)
-					inst.ErrorChan <- fmt.Errorf("skill issue: bad date formatting (%inst.Session is not number)", r)
+					inst.ErrorChan <- fmt.Errorf("skill issue: bad date formatting (%s is not number)", r)
 					return
 				}
 				cl = append(cl, val)

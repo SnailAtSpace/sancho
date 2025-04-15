@@ -68,7 +68,7 @@ func composeRoll(i string) (string, error) {
 
 			bit := rest[1:modRune] // this killed sancho
 			sign := rest[0]
-			fmt.Println(bit)
+			// fmt.Println(bit)
 			if strings.Contains(bit, "d") {
 				mod = 0
 				countS, maxS, _ := strings.Cut(bit, "d")
@@ -96,7 +96,7 @@ func composeRoll(i string) (string, error) {
 					rawStr += strconv.Itoa(v) + " "
 					mod += v
 				}
-				fmt.Printf("count: %d, max: %d, total: %d\n", count, max, mod)
+				// fmt.Printf("count: %d, max: %d, total: %d\n", count, max, mod)
 			} else {
 				mod, err = strconv.Atoi(bit)
 				if err != nil {
