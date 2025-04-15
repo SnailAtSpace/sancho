@@ -86,8 +86,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				go c.Func(inst, m)
 			}
 		}
-	} else if slices.Contains(strings.Split(normMsg, " "), "kiss") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) {
-		//s.ChannelMessageSendReply(m.ChannelID, "...Maybe.", m.Reference())
 	} else if strings.Contains(normMsg, "mwah") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && (m.Author.ID == whoopsID) {
 		whoopsMessages := []string{
 			"...Not now.\n-# We can hold hands though.",
@@ -103,6 +101,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSendReply(m.ChannelID, whoopsMessages[pick], m.Reference())
 	} else if strings.Contains(normMsg, "conceived") && m.Author.ID == mattagerID {
 		inst.Session.ChannelMessageSendReply(m.ChannelID, "What... is it this time?", m.Reference())
+	} else if strings.Contains(normMsg, "sorry") && m.Author.ID == enderID && !slices.Contains(badChannels, m.ChannelID){
+		go EnderApologyReaction(inst, m)
 	}
 }
 

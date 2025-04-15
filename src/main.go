@@ -25,7 +25,8 @@ var retch = make(chan int) // i hate this. i hate this with all my heart. but i 
 var inst *Instance
 var status bool = false
 
-var greedID, myID, femmoID, whoopsID, mattagerID, nachoBowl string
+var greedID, myID, femmoID, whoopsID, mattagerID, nachoBowl, enderID string
+var badChannels []string
 
 func main() {
 	listenChannelID = ""
@@ -35,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("no secrets file: %s", err.Error())
 	}
-	secrets := strings.Split(string(rawSecrets), "\n")
+	secrets := strings.Split(string(rawSecrets), "\r\n") // fucking stupid why 
 	
 	auth_token := secrets[0]
 	nachoBowl = secrets[1]
@@ -44,6 +45,8 @@ func main() {
 	myID = secrets[4]
 	femmoID = secrets[5]
 	greedID = secrets[6]
+	enderID = secrets[7]
+	badChannels = strings.Split(secrets[8], " ")
 
 	// firing up the discord session
 	discord, err := discordgo.New("Bot " + auth_token)

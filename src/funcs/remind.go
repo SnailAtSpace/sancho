@@ -623,6 +623,8 @@ func (r *Reminder) Clone() *Reminder {
 	}
 }
 
+// WHY IS IT DONE LIKE THAT! HOW DO I MAKE THIS BETTER?
+// I DON'T WANT TO PASS THE ENTIRE INSTANCE
 func (r *ReminderManager) ReviseRemindersAfterStartup(inst *Instance) error {
 	reminderFile, err := os.OpenFile("timers.txt", os.O_RDWR, 0666)
 	if err != nil {
