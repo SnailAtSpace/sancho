@@ -50,13 +50,20 @@ func ApplyImageProcessing(inst *Instance, m *discordgo.MessageCreate) {
 		targetMsg = m.ReferencedMessage
 	}
 
+	var targets []string
+
 	if len(targetMsg.Attachments) > 0 {
-		resp, err = http.Get(targetMsg.Attachments[0].URL)
+		for _, att := range targetMsg.Attachments {
+			targets = append(targets, att.URL)
+		}
 	} else {
 		if strings.Contains(targetMsg.Content, "discordapp") {
-			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://"):], " ")
-			resp, err = requestImageViaAPI(inst.Session, link)
-			fmt.Println(link)
+			// link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://"):], " ")
+			// resp, err = requestImageViaAPI(inst.Session, link)
+			// fmt.Println(link)
+			// sorry this shit still doesn't work
+			inst.Session.ChannelMessageSendReply(m.ChannelID, "Unfortunately, Discord CDN link attachments are not supported. My creator tried their best.", m.SoftReference())
+			return
 		} else if strings.Contains(targetMsg.Content, "tenor.com") {
 			var orig []byte
 			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://tenor.com"):], " ")
@@ -77,58 +84,60 @@ func ApplyImageProcessing(inst *Instance, m *discordgo.MessageCreate) {
 			st := string(orig)
 			fieldStart := strings.Index(st, "contentUrl") + len("contentUrl\":\"")
 			url := strings.ReplaceAll(st[fieldStart:fieldStart+strings.Index(st[fieldStart:], "\"")], "\\u002F", "/")
-			resp, err = http.Get(url)
+			//resp, err = http.Get(url)
+			targets = append(targets, url)
 		} else { // hope for the best
 			link, _, _ := strings.Cut(targetMsg.Content[strings.Index(targetMsg.Content, "https://"):], " ")
-			resp, err = http.Get(link)
+			targets = append(targets, link)
 		}
 	}
 
-	if err != nil || resp.StatusCode != http.StatusOK {
-		fmt.Println("couldn't get image from internet:", resp.StatusCode, err)
-		return
-	}
-	orig, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		fmt.Println("couldn't extract from html")
-		Sadness(inst, m)
-		return
-	}
+	var outputFiles []*discordgo.File
+	for _, src := range targets {
+		resp, err = http.Get(src)
 
-	err = orb.ReadImageBlob(orig)
-	defer orb.Clear()
-	if err != nil {
-		fmt.Println("couldn't read img into orb", err)
-		Sadness(inst, m)
-		return
-	}
-
-	for _, r := range imageprocs {
-		if strings.Split(m.Content[1:], " ")[0] == r.Alias {
-			out, err := r.Func(orb)
-			if err != nil {
-				inst.ErrorChan <- err
-				fmt.Println(err)
-				return
-			}
-			outReader := bytes.NewReader(*out)
-			form = orb.GetFormat()
-			inst.Session.ChannelMessageSendComplex(c.ID, &discordgo.MessageSend{
-				Reference: m.Reference(),
-				Files: []*discordgo.File{
-					{
-						Name:   "img." + form,
-						Reader: outReader,
-					},
-				},
-			})
+		if err != nil || resp.StatusCode != http.StatusOK {
+			fmt.Println("couldn't get image from internet:", resp.StatusCode, err)
 			return
 		}
+		orig, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			fmt.Println("couldn't extract from html")
+			Sadness(inst, m)
+			return
+		}
+
+		err = orb.ReadImageBlob(orig)
+		if err != nil {
+			fmt.Println("couldn't read img into orb", err)
+			Sadness(inst, m)
+			return
+		}
+
+		for _, r := range imageprocs {
+			if strings.Split(m.Content[1:], " ")[0] == r.Alias {
+				out, err := r.Func(orb)
+				if err != nil {
+					inst.ErrorChan <- err
+					fmt.Println(err)
+					return
+				}
+				outReader := bytes.NewReader(*out)
+				form = orb.GetFormat()
+				outputFiles = append(outputFiles, &discordgo.File{
+					Name:   "img." + form,
+					Reader: outReader,
+				})
+			}
+		}
+		orb.Clear()
 	}
-	//what the fuck? how did we get here?
-	Sadness(inst, m)
-	inst.ErrorChan <- fmt.Errorf("we found an image processing command that is not in our list? what the fuck")
+
+	inst.Session.ChannelMessageSendComplex(c.ID, &discordgo.MessageSend{
+		Reference: m.Reference(),
+		Files: outputFiles,
+		})
 }
 
 func Jpegify(orb *imagick.MagickWand, quality int) (*[]byte, error) {
@@ -452,7 +461,6 @@ func corru(orb *imagick.MagickWand) (*[]byte, error) {
 		return nil, err
 	}
 
-	fmt.Println(orb.GetNumberImages())
 	if orb.GetNumberImages() > 1 {
 		orb.SetFormat("gif")
 		orb = orb.CoalesceImages()
@@ -480,6 +488,8 @@ func corru(orb *imagick.MagickWand) (*[]byte, error) {
 		out, err = orb.GetImagesBlob()
 	} else {
 		orb.SetFormat("png")
+		//balanceBrightness(orb, mapOrb)
+		orb.AutoGammaImage()
 		corruifyImg(orb, mapOrb)
 		out, err = orb.GetImageBlob()
 	}
@@ -499,4 +509,28 @@ func corruifyImg(orb *imagick.MagickWand, remapOrb *imagick.MagickWand) {
 	scalingFactor := math.Min(float64(x/300), float64(y/300)) // analogous to downscaling it to fit in a 240x180 box
 	orb.ResizeImage(uint(float64(x)/scalingFactor), uint(float64(y)/scalingFactor), imagick.FILTER_POINT)
 	orb.RemapImage(remapOrb, imagick.DITHER_METHOD_FLOYD_STEINBERG)
+}
+
+func balanceBrightness(orb *imagick.MagickWand, remapOrb *imagick.MagickWand) {
+	epsilon := 0.001
+	ideal := 0.20
+
+	brightnessOrb := imagick.NewMagickWand()
+	brightnessOrb.AddImage(orb.GetImage())
+	brightnessOrb.SetFirstIterator()
+	corruifyImg(brightnessOrb, remapOrb)
+	brightnessOrb.ResizeImage(1,1, imagick.FILTER_BOX)
+	px, _ := brightnessOrb.GetImagePixelColor(1,1)
+	_,_, brightnessValue := px.GetHSL()
+
+	for i:=0; math.Abs(brightnessValue-ideal)>epsilon && i<20; i++{	
+		fmt.Printf("current brightness value is %f\n", brightnessValue)
+		orb.BrightnessContrastImage((100.0/float64(int(1)<<(i+1)))*((ideal-brightnessValue)/math.Abs(ideal-brightnessValue)),0)
+		fmt.Printf("adjusted brightness by %f\n", (100.0/float64(int(1)<<(i+1)))*((ideal-brightnessValue)/math.Abs(ideal-brightnessValue)))
+		brightnessOrb.SetImage(orb.GetImage())
+		corruifyImg(brightnessOrb, remapOrb)
+		brightnessOrb.ResizeImage(1,1, imagick.FILTER_BOX)
+		px, _ := brightnessOrb.GetImagePixelColor(1,1)
+		_,_, brightnessValue = px.GetHSL()
+	}
 }
