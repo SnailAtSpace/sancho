@@ -36,6 +36,7 @@ func changeChannel(discord *discordgo.Session, s string) error {
 
 func sayCli(discord *discordgo.Session, s string) error {
 	raw, _ := strings.CutPrefix(s, "say ")
+	raw = strings.ReplaceAll(raw, "\\n", "\n")
 	discord.ChannelMessageSend(echoChan, raw)
 	return nil
 }
@@ -46,6 +47,7 @@ func sayCliReply(discord *discordgo.Session, s string) error {
 	if !found {
 		return fmt.Errorf("Wow. You somehow fucked that up.")
 	}
+	msg = strings.ReplaceAll(msg, "\\n", "\n")
 	discord.ChannelMessageSendReply(echoChan, msg, &discordgo.MessageReference{MessageID: repId})
 	return nil
 }
@@ -65,6 +67,7 @@ func sayCliAttachment(discord *discordgo.Session, s string) error {
 		return err
 	}
 	defer img.Close()
+	msg = strings.ReplaceAll(msg, "\\n", "\n")
 	if msgId == "" {
 		discord.ChannelMessageSendComplex(echoChan, &discordgo.MessageSend{
 			Content: msg,
