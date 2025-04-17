@@ -34,6 +34,7 @@ func EnderApologyReaction(inst *Instance, m *discordgo.MessageCreate) {
 	times++
 
 	inifile.Section("").Key("endercount").SetValue(strconv.Itoa(times))
+	inifile.SaveTo("randombullshit.ini")
 
 	inst.Session.ChannelMessageSendReply(m.ChannelID, lines[int(index.Int64())]+"\n*Times Ender has apologized: "+strconv.Itoa(times)+"*", m.SoftReference())
 }

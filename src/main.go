@@ -48,6 +48,9 @@ func main() {
 	enderID = secrets[7]
 	badChannels = strings.Split(secrets[8], " ")
 
+	echoChan = nachoBowl
+	listenChannelID = nachoBowl
+
 	// firing up the discord session
 	discord, err := discordgo.New("Bot " + auth_token)
 
