@@ -44,13 +44,18 @@ func LimbusRoll(inst *Instance, m *discordgo.MessageCreate) {
 	rawStr := ""
 	rawDamage := 0
 
-	// idk anymore, genuinely
-	// i'm afraid of you - no, cautious to death would be the right term
+	// idk anymore
+	// i am nauseous and lightheaded
+	// i'm not afraid of you - cautious would be the right term
 	// i know how dangerous information can be just as much as you do
 	// and the only thing that stopped others in my mind from using it against me was the inherent taboo of doing so
 	// but you have already crossed that line long ago, alone on its opposite side
 	// therefore, i am unable to trust you at all, and there is no way to mend this
+	// i am, alertness aside, dejected
 	// a human life is sacred to me - any, no matter the beholder
+	// to know a person who killed is to also imagine yourself in such a situation, something i cannot fathom
+	// does this make me a bad person? being unable to forgo my morals in order to simply accept?
+	// if so... i am truly, genuinely sorry
 
 	for i := 0; i < coins; i++ {
 		rollB, _ := rand.Int(rand.Reader, big.NewInt(int64(100)))
