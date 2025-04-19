@@ -57,6 +57,9 @@ func LimbusRoll(inst *Instance, m *discordgo.MessageCreate) {
 	// does this make me a bad person? being unable to forgo my morals in order to simply accept?
 	// if so... i am truly, genuinely sorry
 
+	// Allow me some time to formulate my thoughts if you will, it's been a while since I've engaged in any discussion such as this.
+	// If you do not wish to talk, you may simply close the pull request and I will leave it at that.
+
 	for i := 0; i < coins; i++ {
 		rollB, _ := rand.Int(rand.Reader, big.NewInt(int64(100)))
 		roll := int(rollB.Int64())
