@@ -76,6 +76,22 @@ func LimbusRoll(inst *Instance, m *discordgo.MessageCreate) {
 	// I am ill fit for this purpose, as I seem to have only brought trouble onto you, but I wish to still be atleast on positive terms with you.
 	// You are a dear friend, and an even kinder soul, please do not let your light snuff out.
 
+	// i see
+	// perhaps it is me who is too weak to bear the weight of justice's scales
+	// but i myself cannot deem myself worthy of such enactments
+	// maybe i am of the "trembling beasts", though i never considered myself to be a "right bearer" in the first place
+	// ...funny how i'm citing crime and punishment of all things
+	// lives are simply too heavy to weigh out for me - numbers don't matter
+	// i do not think i am capable of enacting any justice to a satisfying degree, and project that notion onto others
+	// most likely foolishly and for worse
+	// but i have heard you
+	// your explanation... it gave partial peace of mind
+	// the initial shock of your original words is thankfully long gone, do not worry about that
+	// i can bear the sight of violence again
+	// now i am confident i will return, but not immediately
+	// thank you for reaching out despite my withdrawal
+	// and sorry for not noticing your message sooner
+
 	for i := 0; i < coins; i++ {
 		rollB, _ := rand.Int(rand.Reader, big.NewInt(int64(100)))
 		roll := int(rollB.Int64())
