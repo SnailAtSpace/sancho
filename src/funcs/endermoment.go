@@ -11,7 +11,7 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-func EnderApologyReaction(inst *Instance, m *discordgo.MessageCreate) {
+func EnderApologyReaction(inst *Instance, m *discordgo.Message) {
 	rawLines, err := os.ReadFile("apologylines.txt")
 	if err != nil {
 		inst.ErrorChan <- err

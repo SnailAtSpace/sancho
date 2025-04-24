@@ -52,15 +52,22 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	defer panicMsg(s)
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
 
-	if (m.ChannelID == listenChannelID) || strings.Contains(strings.ToLower(m.ContentWithMentionsReplaced()), "sancho") {
-		fmt.Printf("[%s](%s) %s: %s\n", m.Timestamp.Format(time.TimeOnly), m.ID, m.Author.Username, m.ContentWithMentionsReplaced())
+	channel, err := s.Channel(m.ChannelID)
+
+	if err!=nil {
+		log.Println(err)
+		return
 	}
 
+	if channel.Type == discordgo.ChannelTypeDM {
+		fmt.Printf("[%s]{%s} DM from %s: %s\n", m.Timestamp.Local().Format(time.TimeOnly), m.ID, m.Author.Username, m.ContentWithMentionsReplaced())
+	} else if (m.ChannelID == listenChannelID) || strings.Contains(strings.ToLower(m.ContentWithMentionsReplaced()), "sancho") {
+		fmt.Printf("[%s]{%s} @%s %s: %s\n", m.Timestamp.Local().Format(time.TimeOnly), m.ID, channel.Name, m.Author.Username, m.ContentWithMentionsReplaced())
+	}
 	var refid string
 	if m.ReferencedMessage != nil {
 		refid = m.ReferencedMessage.Author.ID
@@ -102,7 +109,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if strings.Contains(normMsg, "conceived") && m.Author.ID == mattagerID {
 		inst.Session.ChannelMessageSendReply(m.ChannelID, "What... is it this time?", m.Reference())
 	} else if strings.Contains(normMsg, "sorry") && m.Author.ID == enderID && !slices.Contains(badChannels, m.ChannelID){
-		go EnderApologyReaction(inst, m)
+		go EnderApologyReaction(inst, m.Message)
 	}
 }
 
@@ -110,6 +117,12 @@ func messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	normMsg := strings.TrimSpace(strings.ToLower(m.ContentWithMentionsReplaced()))
 	if len(normMsg) == 0 {
 		return
+	}
+
+	if m.BeforeUpdate!=nil{
+		if !strings.Contains(strings.ToLower(m.BeforeUpdate.Content), "sorry") && strings.Contains(strings.ToLower(m.Content), "sorry") && m.Author.ID == enderID {
+			EnderApologyReaction(inst, m.Message)
+		}
 	}
 	if normMsg[0] == '.' {
 		cmd := strings.Split(normMsg[1:], " ")[0]
@@ -133,5 +146,5 @@ func messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 			} // ok if we HAVE the message, it must be right
 			EditRoll(inst, m, mymsg)
 		}
-	}
+	} 
 }

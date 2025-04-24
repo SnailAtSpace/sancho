@@ -36,3 +36,5 @@ prescript.js # change!!!!!!!!!
 *.code-workspace
 
 .vscode
+secret*
+dump*
