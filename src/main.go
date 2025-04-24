@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 
 	. "github.com/snailatspace/sancho/src/funcs"
+	"github.com/snailatspace/sancho/src/secret"
 
 	"bufio"
 	"fmt"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"gopkg.in/gographics/imagick.v3/imagick"
+	"golang.org/x/term"
 )
 
 var listenChannelID string
@@ -28,31 +31,31 @@ var status bool = false
 var greedID, myID, femmoID, whoopsID, mattagerID, nachoBowl, enderID string
 var badChannels []string
 
+var hiii = flag.String("f", "", "")
+
+func init() { flag.Parse() }
+
 func main() {
 	listenChannelID = ""
 	fmt.Printf("[%s] I shall pronounce the bot started.\n", time.Now().Format(time.TimeOnly))
 
-	rawSecrets, err := os.ReadFile("secrets.txt")
+	// COMMENT THIS OUT WHEN TESTING - I AM PARANOID ===================================
+	var bwaaa []byte
+	bwaaa, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.Fatalf("no secrets file: %s", err.Error())
+		log.Panicln(err)
 	}
-	secrets := strings.Split(string(rawSecrets), "\r\n") // fucking stupid why 
-	
-	auth_token := secrets[0]
-	nachoBowl = secrets[1]
-	mattagerID = secrets[2]
-	whoopsID = secrets[3]
-	myID = secrets[4]
-	femmoID = secrets[5]
-	greedID = secrets[6]
-	enderID = secrets[7]
-	badChannels = strings.Split(secrets[8], " ")
-
-	echoChan = nachoBowl
-	listenChannelID = nachoBowl
+	c := make(chan string)
+	go secret.Get(*hiii, string(bwaaa), c)
+	lmao := <-c
+	if lmao != "07efcc347d98b83a971024ab4c10dd93650fad75144437f1c7a6325386beb874" {
+		return
+	}
+	// =================================================================================
 
 	// firing up the discord session
-	discord, err := discordgo.New("Bot " + auth_token)
+	discord, err := discordgo.New("Bot " + getGetGetGetGetGetGetGet() + *hiii)
+	echoChan = nachoBowl
 
 	if err != nil {
 		log.Fatalf("couldn't initialize discord session: %s", err.Error())
@@ -68,11 +71,15 @@ func main() {
 	discord.Identify.Intents |= discordgo.IntentGuildMessageTyping
 	discord.Identify.Intents |= discordgo.IntentGuildMessageReactions
 	discord.Identify.Intents |= discordgo.IntentGuildPresences
+	discord.Identify.Intents |= discordgo.IntentsAll
 	discord.AddHandler(guildCreate)
 	discord.AddHandler(ready)
 	discord.AddHandler(messageCreate)
 	discord.AddHandler(messageUpdate)
 	discord.AddHandler(presenceUpdate)
+	discord.State.MaxMessageCount = 50
+	discord.State.TrackChannels = true
+	discord.StateEnabled = true
 
 	// knocking on discord's window
 	err = discord.Open()
@@ -97,17 +104,17 @@ func main() {
 	}()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
-	femmoTicker := time.NewTicker(24 * time.Hour)
-	femmoTimes := 0
+	// femmoTicker := time.NewTicker(24 * time.Hour)
+	// femmoTimes := 0
 
 	defer panicMsg(discord)
 
 	for {
 		<-ticker.C
-		if status {
-			femmoTicker.Reset(24 * time.Hour)
-			femmoTimes = 0
-		}
+		// if status {
+		// 	femmoTicker.Reset(24 * time.Hour)
+		// 	femmoTimes = 0
+		// }
 		select {
 		case text := <-ch:
 			// process the input asynchronously
@@ -128,18 +135,18 @@ func main() {
 			}
 		case <-sc:
 			return
-		case err = <-inst.ErrorChan:
+		case err := <-inst.ErrorChan:
 			if err != nil {
-				log.Println(err.Error())
+				fmt.Println(err.Error())
 			}
-		case <-femmoTicker.C:
-			femmoTimes++
-			greed, err := inst.Session.UserChannelCreate(greedID)
-			if err != nil {
-				log.Println(err.Error())
-				break
-			}
-			inst.Session.ChannelMessageSend(greed.ID, fmt.Sprintf("Breadfemmo has been offline for %d consecutive hours.", 24*femmoTimes))
+		// case <-femmoTicker.C:
+		// 	femmoTimes++
+		// 	greed, err := inst.Session.UserChannelCreate(greedID)
+		// 	if err != nil {
+		// 		log.Println(err.Error())
+		// 		break
+		// 	}
+		// 	inst.Session.ChannelMessageSend(greed.ID, fmt.Sprintf("Breadfemmo has been offline for %d consecutive hours.", 24*femmoTimes))
 		default:
 		}
 		iterateReminders(inst)
@@ -175,4 +182,22 @@ func presenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
 			fmt.Println(status)
 		}
 	}
+}
+
+func getGetGetGetGetGetGetGet() string {
+	rawSecrets, err := os.ReadFile("secrets.txt")
+	if err != nil {
+		log.Fatalf("no secrets file: %s", err.Error())
+	}
+	secrets := strings.Split(string(rawSecrets), "\r\n") // fucking stupid why
+	nachoBowl = secrets[1]
+	mattagerID = secrets[2]
+	whoopsID = secrets[3]
+	myID = secrets[4]
+	femmoID = secrets[5]
+	greedID = secrets[6]
+	enderID = secrets[7]
+	badChannels = strings.Split(secrets[8], " ")
+
+	return secrets[0]
 }

@@ -116,7 +116,7 @@ func ApplyImageProcessing(inst *Instance, m *discordgo.MessageCreate) {
 		}
 
 		for _, r := range imageprocs {
-			if strings.Split(m.Content[1:], " ")[0] == r.Alias {
+			if strings.ToLower(strings.Split(m.Content[1:], " ")[0]) == r.Alias {
 				out, err := r.Func(orb)
 				if err != nil {
 					inst.ErrorChan <- err
@@ -124,7 +124,14 @@ func ApplyImageProcessing(inst *Instance, m *discordgo.MessageCreate) {
 					return
 				}
 				outReader := bytes.NewReader(*out)
-				form = orb.GetFormat()
+				if orb.GetNumberImages()>1 {
+					form = "gif"
+				} else {
+					form = orb.GetImageFormat()
+					if form == ""{
+						form = "png" // fallback
+					}
+				}
 				outputFiles = append(outputFiles, &discordgo.File{
 					Name:   "img." + form,
 					Reader: outReader,
@@ -145,25 +152,25 @@ func Jpegify(orb *imagick.MagickWand, quality int) (*[]byte, error) {
 	if orb.GetNumberImages() > 1 {
 		orb = orb.CoalesceImages()
 		orb.SetFormat("gif")
-		var disp imagick.DisposeType
-		var w, h, del uint
-		var x, y int
+		// var disp imagick.DisposeType
+		// var w, h, del uint
+		// var x, y int
 		for i := 0; i < int(orb.GetNumberImages()); i++ {
 			orb.SetIteratorIndex(i)
-			del = orb.GetImageDelay()
-			w, h, x, y, _ = orb.GetImagePage()
-			disp = orb.GetImageDispose()
+			// del = orb.GetImageDelay()
+			// w, h, x, y, _ = orb.GetImagePage()
+			// disp = orb.GetImageDispose()
 			jpegifyImg(orb, quality)
-			out, _ = orb.GetImageBlob()
-			orb.ReadImageBlob(out)
-			if i != int(orb.GetIteratorIndex()) {
-				orb.PreviousImage()
-			}
-			orb.RemoveImage()
+			// out, _ = orb.GetImageBlob()
+			// orb.ReadImageBlob(out)
+			// if i != int(orb.GetIteratorIndex()) {
+			// 	orb.PreviousImage()
+			// }
+			// orb.RemoveImage()
 			orb.SetImageFormat("gif")
-			orb.SetImageDispose(disp)
-			orb.SetImageDelay(del)
-			orb.SetImagePage(w, h, x, y)
+			// orb.SetImageDispose(disp)
+			// orb.SetImageDelay(del)
+			// orb.SetImagePage(w, h, x, y)
 		}
 		out, err = orb.GetImagesBlob()
 	} else {
@@ -180,20 +187,23 @@ func Jpegify(orb *imagick.MagickWand, quality int) (*[]byte, error) {
 }
 
 func jpegifyImg(orb *imagick.MagickWand, q int) {
+	var x, y uint
 	orb.SetImageFormat("JPEG")
 	orb.SetImageCompressionQuality(uint(q))
 	orb.SetCompressionQuality(uint(q))
 	if q < 2 {
-		x, y := orb.GetImageWidth(), orb.GetImageHeight()
+		x, y = orb.GetImageWidth(), orb.GetImageHeight()
 		scalingFactor := math.Max(float64(x/160), float64(y/120)) // analogous to downscaling it to fit in a 240x180 box
 		orb.ModulateImage(100, 150, 100)
 		orb.ResizeImage(uint(float64(x)/scalingFactor), uint(float64(y)/scalingFactor), imagick.FILTER_BOX)
-		out, _ := orb.GetImageBlob()
-		orb.ReadImageBlob(out)
-		if orb.GetIteratorIndex() == orb.GetNumberImages()-1 {
-			orb.PreviousImage()
-		}
-		orb.RemoveImage()
+	}
+	out, _ := orb.GetImageBlob()
+	orb.ReadImageBlob(out)
+	if orb.GetIteratorIndex() == orb.GetNumberImages()-1 {
+		orb.PreviousImage()
+	}
+	orb.RemoveImage()
+	if q < 2 {
 		orb.ResizeImage(x, y, imagick.FILTER_BOX)
 		orb.SetImageFormat("JPEG")
 		orb.PosterizeImage(16, imagick.DITHER_METHOD_FLOYD_STEINBERG)
@@ -461,35 +471,22 @@ func corru(orb *imagick.MagickWand) (*[]byte, error) {
 		return nil, err
 	}
 
+	brightnessOrb := imagick.NewMagickWand()
+
 	if orb.GetNumberImages() > 1 {
 		orb.SetFormat("gif")
 		orb = orb.CoalesceImages()
 		orb.SetFormat("gif")
-		var disp imagick.DisposeType
-		var w, h, del uint
-		var x, y int
 		for i := 0; i < int(orb.GetNumberImages()); i++ {
 			orb.SetIteratorIndex(i)
-			del = orb.GetImageDelay()
-			w, h, x, y, _ = orb.GetImagePage()
-			disp = orb.GetImageDispose()
+			balanceBrightness(orb, mapOrb, brightnessOrb)
 			corruifyImg(orb, mapOrb)
-			out, _ = orb.GetImageBlob()
-			orb.ReadImageBlob(out)
-			if i != int(orb.GetIteratorIndex()) {
-				orb.PreviousImage()
-			}
-			orb.RemoveImage()
 			orb.SetImageFormat("gif")
-			orb.SetImageDispose(disp)
-			orb.SetImageDelay(del)
-			orb.SetImagePage(w, h, x, y)
 		}
 		out, err = orb.GetImagesBlob()
 	} else {
 		orb.SetFormat("png")
-		//balanceBrightness(orb, mapOrb)
-		orb.AutoGammaImage()
+		balanceBrightness(orb, mapOrb, brightnessOrb)
 		corruifyImg(orb, mapOrb)
 		out, err = orb.GetImageBlob()
 	}
@@ -508,29 +505,25 @@ func corruifyImg(orb *imagick.MagickWand, remapOrb *imagick.MagickWand) {
 	x, y := orb.GetImageWidth(), orb.GetImageHeight()
 	scalingFactor := math.Min(float64(x/300), float64(y/300)) // analogous to downscaling it to fit in a 240x180 box
 	orb.ResizeImage(uint(float64(x)/scalingFactor), uint(float64(y)/scalingFactor), imagick.FILTER_POINT)
+
 	orb.RemapImage(remapOrb, imagick.DITHER_METHOD_FLOYD_STEINBERG)
 }
 
-func balanceBrightness(orb *imagick.MagickWand, remapOrb *imagick.MagickWand) {
-	epsilon := 0.001
-	ideal := 0.20
+func balanceBrightness(orb *imagick.MagickWand, remapOrb *imagick.MagickWand, brightnessOrb *imagick.MagickWand) {
+	baseGamma := 0.95
+	darknessAdj := 0.4
 
-	brightnessOrb := imagick.NewMagickWand()
 	brightnessOrb.AddImage(orb.GetImage())
+	defer brightnessOrb.Clear()
 	brightnessOrb.SetFirstIterator()
-	corruifyImg(brightnessOrb, remapOrb)
-	brightnessOrb.ResizeImage(1,1, imagick.FILTER_BOX)
-	px, _ := brightnessOrb.GetImagePixelColor(1,1)
-	_,_, brightnessValue := px.GetHSL()
 
-	for i:=0; math.Abs(brightnessValue-ideal)>epsilon && i<20; i++{	
-		fmt.Printf("current brightness value is %f\n", brightnessValue)
-		orb.BrightnessContrastImage((100.0/float64(int(1)<<(i+1)))*((ideal-brightnessValue)/math.Abs(ideal-brightnessValue)),0)
-		fmt.Printf("adjusted brightness by %f\n", (100.0/float64(int(1)<<(i+1)))*((ideal-brightnessValue)/math.Abs(ideal-brightnessValue)))
-		brightnessOrb.SetImage(orb.GetImage())
-		corruifyImg(brightnessOrb, remapOrb)
-		brightnessOrb.ResizeImage(1,1, imagick.FILTER_BOX)
-		px, _ := brightnessOrb.GetImagePixelColor(1,1)
-		_,_, brightnessValue = px.GetHSL()
-	}
+	corruifyImg(brightnessOrb, remapOrb)
+
+	brightnessOrb.ResizeImage(1,1, imagick.FILTER_GAUSSIAN)
+	px, _ := brightnessOrb.GetImagePixelColor(1,1)
+
+	// assumedly from 0 to 1
+	brightnessValue := px.GetRed()*0.2627+px.GetGreen()*0.6780+px.GetBlue()*0.0593
+
+	orb.GammaImage(baseGamma-math.Log10(brightnessValue*2+darknessAdj))
 }

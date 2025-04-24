@@ -24,13 +24,18 @@ var cliCmds = []CliCommand{
 	{"sayi", sayCliAttachment},
 	{"listen", listenChannel},
 	{"channels", listChannels},
+	{"dump", dump},
+	{"edit", edit},
+	{"dm", dm},
+	{"del", delete},
+	{"pff", postFromFile},
 }
 
 var botCmds = []BotCommand{
 	{[]string{"help"}, Help},
 	{[]string{"roll"}, Roll},
 	{[]string{"bod"}, BoD},
-	{[]string{"nacho", "badword", "rye", "ryeldhunt", "pet", "sanitize"}, SendImg},
+	{[]string{"nacho", "badword", "rye", "ryeldhunt", "pet", "sanitize", "sanitise"}, SendImg},
 	{[]string{"remind", "remindme"}, SetReminder},
 	{[]string{"reminders"}, ListReminders},
 	{[]string{"deremind", "forget"}, DeleteReminder},
@@ -40,4 +45,5 @@ var botCmds = []BotCommand{
 	{[]string{"settz"}, SetTimezone},
 	{[]string{"yesod", "jpeg", "corru"}, ApplyImageProcessing},
 	{[]string{"limbusroll", "skill", "skillroll"}, LimbusRoll},
+	{[]string{"prescript"}, Prescript},
 }

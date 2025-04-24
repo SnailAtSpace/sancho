@@ -44,6 +44,8 @@ func LimbusRoll(inst *Instance, m *discordgo.MessageCreate) {
 	rawStr := ""
 	rawDamage := 0
 
+	/* The following comment block is a recording of a personal crisis. It will not be removed under any circumstance, and it is free to be viewed. */
+
 	// idk anymore
 	// i am nauseous and lightheaded
 	// i'm not afraid of you - cautious would be the right term
@@ -78,7 +80,7 @@ func LimbusRoll(inst *Instance, m *discordgo.MessageCreate) {
 
 	// i see
 	// perhaps it is me who is too weak to bear the weight of justice's scales
-	// but i myself cannot deem myself worthy of such enactments
+	// but i cannot deem myself worthy of such enactments
 	// maybe i am of the "trembling beasts", though i never considered myself to be a "right bearer" in the first place
 	// ...funny how i'm citing crime and punishment of all things
 	// lives are simply too heavy to weigh out for me - numbers don't matter
