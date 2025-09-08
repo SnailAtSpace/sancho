@@ -4,7 +4,6 @@ import (
 	"flag"
 
 	. "github.com/snailatspace/sancho/src/funcs"
-	"github.com/snailatspace/sancho/src/secret"
 
 	"bufio"
 	"fmt"
@@ -15,9 +14,11 @@ import (
 	"syscall"
 	"time"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/bwmarrin/discordgo"
 	"gopkg.in/gographics/imagick.v3/imagick"
-	"golang.org/x/term"
 )
 
 var listenChannelID string
@@ -29,7 +30,7 @@ var inst *Instance
 var status bool = false
 
 var greedID, myID, femmoID, whoopsID, mattagerID, nachoBowl, enderID string
-var badChannels []string
+var badChannels, RPChannels []string
 
 var hiii = flag.String("f", "", "")
 
@@ -38,20 +39,24 @@ func init() { flag.Parse() }
 func main() {
 	listenChannelID = ""
 	fmt.Printf("[%s] I shall pronounce the bot started.\n", time.Now().Format(time.TimeOnly))
+	log.SetFlags(3)
 
 	// COMMENT THIS OUT WHEN TESTING - I AM PARANOID ===================================
-	var bwaaa []byte
-	bwaaa, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.Panicln(err)
-	}
-	c := make(chan string)
-	go secret.Get(*hiii, string(bwaaa), c)
-	lmao := <-c
-	if lmao != "07efcc347d98b83a971024ab4c10dd93650fad75144437f1c7a6325386beb874" {
-		return
-	}
+	// var bwaaa []byte
+	// bwaaa, err := term.ReadPassword(int(syscall.Stdin))
+	// if err != nil {
+	// 	log.Panicln(err)
+	// }
+	// c := make(chan string)
+	// go secret.Get(*hiii, string(bwaaa), c)
+	// lmao := <-c
+	// if lmao != "07efcc347d98b83a971024ab4c10dd93650fad75144437f1c7a6325386beb874" {
+	// 	return
+	// }
 	// =================================================================================
+
+	os.Setenv("MAGICK_THREAD_LIMIT", "12")
+	os.Setenv("MAGICK_OCL_DEVICE", "true")
 
 	// firing up the discord session
 	discord, err := discordgo.New("Bot " + getGetGetGetGetGetGetGet() + *hiii)
@@ -61,7 +66,11 @@ func main() {
 		log.Fatalf("couldn't initialize discord session: %s", err.Error())
 	}
 
-	inst = &Instance{Session: discord, RManager: &ReminderManager{Reminders: make([]Reminder, 0)}, ErrorChan: make(chan error)}
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	inst = &Instance{Session: discord, RManager: &ReminderManager{Reminders: make([]Reminder, 0)}, ErrorChan: make(chan error, 5)}
 
 	// setting intents and adding event handlers
 	discord.Identify.Intents = 335666240
@@ -116,6 +125,10 @@ func main() {
 		// 	femmoTimes = 0
 		// }
 		select {
+		case err := <-inst.ErrorChan:
+			if err!=nil {
+				log.Println(err.Error())
+			}
 		case text := <-ch:
 			// process the input asynchronously
 			go func() {
@@ -135,10 +148,6 @@ func main() {
 			}
 		case <-sc:
 			return
-		case err := <-inst.ErrorChan:
-			if err != nil {
-				fmt.Println(err.Error())
-			}
 		// case <-femmoTicker.C:
 		// 	femmoTimes++
 		// 	greed, err := inst.Session.UserChannelCreate(greedID)
@@ -198,6 +207,7 @@ func getGetGetGetGetGetGetGet() string {
 	greedID = secrets[6]
 	enderID = secrets[7]
 	badChannels = strings.Split(secrets[8], " ")
+	RPChannels = strings.Split(secrets[9], " ")
 
 	return secrets[0]
 }

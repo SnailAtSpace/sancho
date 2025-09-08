@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"image/png"
+	"io"
 	"os"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/bwmarrin/dgvoice"
 	"github.com/bwmarrin/discordgo"
+	"github.com/go-tts/tts/pkg/speech"
+	"github.com/hajimehoshi/go-mp3"
 )
+
+var connection *discordgo.VoiceConnection
 
 func gn(discord *discordgo.Session, s string) error {
 	img, err := os.Open("img/goodnight.png")
@@ -166,7 +172,7 @@ func dump(discord *discordgo.Session, s string) error {
 		out += fmt.Sprintf("[%s] %s:\n%s\n\n", r.Timestamp.Local().Format(time.TimeOnly), r.Author.Username, r.ContentWithMentionsReplaced())
 	}
 
-	err = os.WriteFile(fmt.Sprintf("dump-%s-%s.txt",chanName, time.Now().Local().Format(time.DateOnly)), []byte(out), 0777)
+	err = os.WriteFile(fmt.Sprintf("dump-%s-%s.txt", chanName, time.Now().Local().Format(time.DateOnly)), []byte(out), 0777)
 	if err != nil {
 		return err
 	}
@@ -199,7 +205,7 @@ func dm(discord *discordgo.Session, s string) error {
 func delete(discord *discordgo.Session, s string) error {
 	id, _ := strings.CutPrefix(s, "del ")
 	err := discord.ChannelMessageDelete(echoChan, id)
-	if err!=nil {
+	if err != nil {
 		return err
 	}
 	return nil
@@ -208,12 +214,63 @@ func delete(discord *discordgo.Session, s string) error {
 func postFromFile(discord *discordgo.Session, s string) error {
 	fileName, _ := strings.CutPrefix(s, "pff ")
 	text, err := os.ReadFile(fileName)
-	if err!= nil {
+	if err != nil {
 		return err
 	}
 	_, err = discord.ChannelMessageSend(echoChan, string(text))
-	if err!= nil {
+	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func joinVC(discord *discordgo.Session, s string) error {
+	var err error
+	channel := strings.Split(s, " ")[1]
+	connection, err = discord.ChannelVoiceJoin("1250579779837493278", channel, false, false)
+	return err
+}
+
+func leaveVC(discord *discordgo.Session, s string) error {
+	if connection != nil {
+		err := connection.Disconnect()
+		return err
+	} else {
+		return fmt.Errorf("no connection")
+	}
+}
+
+func sayInVc(discord *discordgo.Session, s string) error {
+	var audioBufferPCM []int16
+	audioBufferChan := make(chan []int16)
+
+	text := strings.Join(strings.Split(s, " ")[1:], " ")
+	fmt.Println(text)
+	audioIn, err := speech.FromText(text, speech.LangUs)
+	if err != nil {
+		return err
+	}
+
+	decoder, err := mp3.NewDecoder(audioIn)
+	if err != nil {
+		return err
+	}
+	fmt.Println("mp3 decoded!")
+	fmt.Println(decoder.SampleRate())
+
+	audioBufferBytes, _ := io.ReadAll(decoder)
+	for i:=0;i<len(audioBufferBytes)-1;i+=2 {
+		sample := int16(audioBufferBytes[i+1])<<8 | int16(audioBufferBytes[i])
+		audioBufferPCM = append(audioBufferPCM, int16(sample))
+	}
+
+	os.WriteFile("sound.wav", audioBufferBytes, 0777)
+
+	fmt.Println(len(audioBufferPCM))
+	if len(audioBufferPCM) == 0 {
+		return nil
+	}
+	go dgvoice.SendPCM(connection, audioBufferChan)
+	audioBufferChan <- audioBufferPCM
 	return nil
 }

@@ -77,13 +77,16 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 		switch t.key {
 		case "in":
 			if timeSet || dateSet {
-				msg += t.key + " " + t.txt
+				msg += t.key + " " + t.txt + " "
 				continue
 			}
 			text := strings.Split(strings.TrimSpace(t.txt), " ")
 			eot := false
 			totalTime := 0
 			for len(text) > 0 && !eot && !timeSet {
+				if text[0] == "and" {
+					text = text[1:]
+				}
 				timeIncr, err := strconv.Atoi(text[0])
 				if err != nil {
 					if text[0] == "a" || text[0] == "an" {
@@ -128,13 +131,13 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 				continue
 			}
 			timeInUnix = int(time.Now().Unix()) + totalTime
-			msg += strings.Join(text, " ")
+			msg += strings.Join(text, " ")+" "
 			timeSet = true
 			dateSet = true
 			isRelative = true
 		case "at":
 			if isRelative || timeSet {
-				msg += t.key + " " + t.txt
+				msg += t.key + " " + t.txt + " "
 				continue
 			}
 			var sec, min, hour int
@@ -208,7 +211,7 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 			dateSet = true
 		case "every":
 			if repeatTime != 0 {
-				msg += t.key + " " + t.txt
+				msg += t.key + " " + t.txt + " "
 				continue
 			}
 			text := strings.Split(strings.TrimSpace(t.txt), " ")
@@ -257,10 +260,10 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 			if repeatTime == 0 {
 				continue
 			}
-			msg += strings.Join(text, " ")
+			msg += strings.Join(text, " ")+" "
 		case "times":
 			if repeats != 1 {
-				msg += t.key + " " + t.txt
+				msg += t.key + " " + t.txt + " "
 				continue
 			}
 			timesHopefully := cmd[t.inst-1]
@@ -269,32 +272,37 @@ func SetReminder(inst *Instance, m *discordgo.MessageCreate) {
 				msg = msg[0 : len(msg)-len(timesHopefully)]
 				msg += t.txt
 			} else {
-				msg += t.key + " " + t.txt
+				msg += t.key + " " + t.txt + " "
 				continue
 			}
 		case "forever":
 			foreverFlag = true
 			// this one's a doozy
 		default:
-			msg += t.key + " " + t.txt
+			msg += t.key + " " + t.txt + " "
 		}
 	}
 
+	fmt.Println(timeInUnix, timeSet, dateSet)
+
 	if !timeSet && dateSet {
 		hrs, min, sec := time.Now().Clock()
+		fmt.Println(hrs, min, sec)
 		timeInUnix += hrs*60*60 + min*60 + sec
 	}
 	if timeSet && !dateSet {
 		year, month, day := time.Now().Date()
-		timeInUnix = int(time.Unix(int64(timeInUnix), 0).AddDate(year, int(month), day).Unix())
+		fmt.Println(year, month, day)
+		timeInUnix = int(time.Unix(int64(timeInUnix), 0).AddDate(year-1970, int(month), day).Unix())
 	}
 
 	if foreverFlag && repeatTime != 0 && repeats == 1 {
 		repeats = -1
 	}
 
-	if aoaoao, rest, _ := strings.Cut(msg, " "); aoaoao == "to" {
-		msg = rest
+	// chop the "to" off a message's beginning
+	if strings.Split(msg, " ")[0] == "to" && len(strings.Split(msg, " "))>1{
+		msg = strings.Join(strings.Split(msg, " ")[1:], " ")
 	}
 
 	// TODO: timezones!!
@@ -574,7 +582,7 @@ func SetTimezone(inst *Instance, m *discordgo.MessageCreate) {
 	}
 	defer tzFile.Close()
 
-	if _, err := tzFile.WriteString(strings.Join([]string{m.ID, tzloc.String(), "\n"}, " ")); err != nil {
+	if _, err := tzFile.WriteString(strings.Join([]string{m.Author.ID, tzloc.String(), m.Author.Username, "\n"}, " ")); err != nil {
 		log.Fatal(err)
 	}
 

@@ -52,6 +52,14 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	defer panicMsg(s)
+
+	// i shouldn't be doing this
+	if m == nil {
+		log.Println("fucked up MESSAGE_CREATE event, moving on...")
+		return
+	}
+
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
@@ -65,9 +73,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if channel.Type == discordgo.ChannelTypeDM {
 		fmt.Printf("[%s]{%s} DM from %s: %s\n", m.Timestamp.Local().Format(time.TimeOnly), m.ID, m.Author.Username, m.ContentWithMentionsReplaced())
-	} else if (m.ChannelID == listenChannelID) || strings.Contains(strings.ToLower(m.ContentWithMentionsReplaced()), "sancho") {
-		fmt.Printf("[%s]{%s} @%s %s: %s\n", m.Timestamp.Local().Format(time.TimeOnly), m.ID, channel.Name, m.Author.Username, m.ContentWithMentionsReplaced())
-	}
+	} 
 	var refid string
 	if m.ReferencedMessage != nil {
 		refid = m.ReferencedMessage.Author.ID
@@ -76,11 +82,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if len(normMsg) == 0 {
 		return
 	}
-	if strings.HasPrefix(normMsg, "((") {
+	if strings.HasPrefix(normMsg, "((") && strings.HasSuffix(normMsg, "))") {
 		lastI := strings.LastIndex(normMsg, "))")
-		if lastI == -1 {
-			lastI = len(normMsg) - 2
-		}
 		normMsg = strings.TrimSpace(normMsg[2:lastI])
 	}
 	if len(normMsg) == 0 {
@@ -91,16 +94,21 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		for _, c := range botCmds {
 			if slices.Contains(c.Aliases, cmd) {
 				go c.Func(inst, m)
+				return
 			}
 		}
-	} else if strings.Contains(normMsg, "mwah") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && (m.Author.ID == whoopsID) {
+	}
+	if (m.ChannelID == listenChannelID) || strings.Contains(strings.ToLower(m.ContentWithMentionsReplaced()), "sancho") {
+		fmt.Printf("[%s]{%s} @%s %s: %s\n", m.Timestamp.Local().Format(time.TimeOnly), m.ID, channel.Name, m.Author.Username, m.ContentWithMentionsReplaced())
+	}
+	if strings.Contains(normMsg, "mwah") && (refid == s.State.User.ID || strings.Contains(normMsg, "sancho")) && (m.Author.ID == whoopsID) {
 		whoopsMessages := []string{
 			"...Not now.\n-# We can hold hands though.",
 			"You know what?\n-# mwah",
 			"T-thy company is m-most ap-appreciated...",
 		}
 		pick := rand.IntN(3)
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 2; i++ {
 			if pick == 1 {
 				pick = rand.IntN(3)
 			}

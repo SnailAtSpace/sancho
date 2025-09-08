@@ -29,6 +29,9 @@ var cliCmds = []CliCommand{
 	{"dm", dm},
 	{"del", delete},
 	{"pff", postFromFile},
+	{"joinvc", joinVC},
+	{"leavevc", leaveVC},
+	{"sayvc", sayInVc},
 }
 
 var botCmds = []BotCommand{
@@ -46,4 +49,5 @@ var botCmds = []BotCommand{
 	{[]string{"yesod", "jpeg", "corru"}, ApplyImageProcessing},
 	{[]string{"limbusroll", "skill", "skillroll"}, LimbusRoll},
 	{[]string{"prescript"}, Prescript},
+	{[]string{"sorrycount"}, DisplaySorryCount},
 }
