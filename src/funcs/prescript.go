@@ -48,3 +48,8 @@ func Prescript(inst *Instance, m *discordgo.MessageCreate) {
 		}},
 	})
 }
+
+// yumi this is for you
+// telegram usernames, encrypted with aes
+// mom: tZmLA6cvBrqaTCZJVV6HMgXbGCnU/hPG4SoqzzCpNyg=
+// her: /Bzj9oH6AgzZzdjhX5tYjWb46cbwDSOZaIHWcPb7Ydo=
